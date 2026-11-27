@@ -1,0 +1,23 @@
+Test ConvertLength {
+    Constraint: UnitsDesk().ConvertLength(1, "km", "m") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertFoot {
+    Constraint: UnitsDesk().ConvertLength(1, "ft", "in") == 12;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertTemperature {
+    Constraint: UnitsDesk().ConvertTemperature(100, "C", "F") == 212;
+    Processing: True;
+    Output: True;
+}
+
+Test AddQuantities {
+    Constraint: UnitsDesk().AddQuantities(500, "m", 1, "km") == 1500;
+    Processing: True;
+    Output: True;
+}

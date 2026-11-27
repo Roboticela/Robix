@@ -1,0 +1,895 @@
+// Robix.Units: quantities, dimensions, and exact unit conversion.
+Package Robix.Units;
+
+Import Robix.Core;
+
+
+Class UnitsDesk {
+    Private Int dim;
+    Private Int num;
+    Private Int den;
+    Private Int tempCode;
+    Private Int known;
+    Private Int stored;
+    Private Int uncertainty;
+    Private Int otherUncertainty;
+    Private Array<Int> customDim;
+    Private Array<Int> customNum;
+    Private Array<Int> customDen;
+    Private Array<Int> customUsed;
+    Private Array<String> customSymbol;
+    Private Array<String> customName;
+    Private String unit;
+    Private String problem;
+
+    Public Constructor() {
+        dim = 0;
+        num = 1;
+        den = 1;
+        tempCode = 0;
+        known = 0;
+        stored = 0;
+        uncertainty = 0;
+        otherUncertainty = 0;
+        customDim = [0, 0, 0, 0, 0, 0, 0, 0];
+        customNum = [1, 1, 1, 1, 1, 1, 1, 1];
+        customDen = [1, 1, 1, 1, 1, 1, 1, 1];
+        customUsed = [0, 0, 0, 0, 0, 0, 0, 0];
+        customSymbol = ["", "", "", "", "", "", "", ""];
+        customName = ["", "", "", "", "", "", "", ""];
+        unit = "m";
+        problem = "none";
+    }
+
+    Public Function Convert(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a quantity between two units.";
+        Input: value = "Value", source = "Source unit", target = "Target unit";
+        Processing: "Scale by the exact factor. Temperature uses an affine conversion. Incompatible dimensions are rejected.";
+        Output: "The converted value, or zero when the conversion is not exact.";
+    } {
+        problem = "none";
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        Int sourceDim = dim;
+        Int sourceNum = num;
+        Int sourceDen = den;
+        Int sourceTemp = tempCode;
+        If (This.Bind(target) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        If (sourceDim != dim) {
+            problem = "dimension";
+            Return 0;
+        }
+        unit = target;
+        If (sourceDim == 3) {
+            stored = This.Temperature(value, sourceTemp, tempCode);
+            Return stored;
+        }
+        stored = This.Exact(value * sourceNum * den, sourceDen * num);
+        Return stored;
+    }
+
+    Public Function TryConvert(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Try to convert a quantity.";
+        Input: value = "Value", source = "Source unit", target = "Target unit";
+        Processing: "Use the same conversion. A failure is stored in Fault.";
+        Output: "The converted value, or zero on failure.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function GetConversionFactor(String source, String target) -> Int
+    Explain {
+        Description: "Return the integer scale from one unit to another.";
+        Input: source = "Source unit", target = "Target unit";
+        Processing: "The factor converts one source unit. Temperature returns the multiplicative part.";
+        Output: "The factor, or zero when it is not an integer.";
+    } {
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        If (dim == 3 && tempCode == 0) { Return This.TemperatureFactor(target); }
+        Return This.Convert(1, source, target);
+    }
+
+    Public Function GetConversionOffset(String source, String target) -> Int
+    Explain {
+        Description: "Return the additive offset of an affine conversion.";
+        Input: source = "Source unit", target = "Target unit";
+        Processing: "Length-like units have offset zero. Temperature uses the constant term.";
+        Output: "The offset.";
+    } {
+        If (This.Bind(source) == 0 || This.Bind(target) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        If (dim != 3) { Return 0; }
+        If (source == "C" && target == "K") { Return 273; }
+        If (source == "K" && target == "C") { Return -273; }
+        If (source == "C" && target == "F") { Return 32; }
+        If (source == "F" && target == "C") { Return -32; }
+        If (source == "F" && target == "R") { Return 460; }
+        If (source == "R" && target == "F") { Return -460; }
+        If (source == "C" && target == "R") { Return 492; }
+        Return 0;
+    }
+
+    Public Function ConvertTemperature(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a temperature.";
+        Input: value = "Value", source = "C, F, K, or R", target = "C, F, K, or R";
+        Processing: "Use exact affine formulas. Zero Celsius is 273 kelvin, 32 fahrenheit, and 492 rankine.";
+        Output: "The converted temperature.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertLength(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a length.";
+        Input: value = "Value", source = "Length unit", target = "Length unit";
+        Processing: "Convert through millimeters.";
+        Output: "The converted length.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertMass(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a mass.";
+        Input: value = "Value", source = "Mass unit", target = "Mass unit";
+        Processing: "Convert through milligrams.";
+        Output: "The converted mass.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertTime(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a duration.";
+        Input: value = "Value", source = "Time unit", target = "Time unit";
+        Processing: "Convert through milliseconds.";
+        Output: "The converted duration.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertVolume(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a volume.";
+        Input: value = "Value", source = "Volume unit", target = "Volume unit";
+        Processing: "Convert through milliliters.";
+        Output: "The converted volume.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertSpeed(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a speed.";
+        Input: value = "Value", source = "Speed unit", target = "Speed unit";
+        Processing: "Convert through millimeters per second.";
+        Output: "The converted speed.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertPressure(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert a pressure.";
+        Input: value = "Value", source = "Pressure unit", target = "Pressure unit";
+        Processing: "Convert through pascals.";
+        Output: "The converted pressure.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function ConvertEnergy(Int value, String source, String target) -> Int
+    Explain {
+        Description: "Convert an energy.";
+        Input: value = "Value", source = "Energy unit", target = "Energy unit";
+        Processing: "Convert through joules.";
+        Output: "The converted energy.";
+    } {
+        Return This.Convert(value, source, target);
+    }
+
+    Public Function AddQuantities(Int left, String leftUnit, Int right, String rightUnit) -> Int
+    Explain {
+        Description: "Add two quantities.";
+        Input: left = "Left value", leftUnit = "Left unit", right = "Right value", rightUnit = "Right unit";
+        Processing: "Convert the right value into the left unit and add.";
+        Output: "The sum in the left unit.";
+    } {
+        Int converted = This.Convert(right, rightUnit, leftUnit);
+        If (problem != "none") { Return 0; }
+        stored = left + converted;
+        unit = leftUnit;
+        Return stored;
+    }
+
+    Public Function SubtractQuantities(Int left, String leftUnit, Int right, String rightUnit) -> Int
+    Explain {
+        Description: "Subtract two quantities.";
+        Input: left = "Left value", leftUnit = "Left unit", right = "Right value", rightUnit = "Right unit";
+        Processing: "Convert the right value into the left unit and subtract.";
+        Output: "The difference in the left unit.";
+    } {
+        Int converted = This.Convert(right, rightUnit, leftUnit);
+        If (problem != "none") { Return 0; }
+        stored = left - converted;
+        unit = leftUnit;
+        Return stored;
+    }
+
+    Public Function MultiplyQuantities(Int left, String leftUnit, Int right, String rightUnit) -> Int
+    Explain {
+        Description: "Multiply two lengths into an area.";
+        Input: left = "Left length", leftUnit = "Left unit", right = "Right length", rightUnit = "Right unit";
+        Processing: "Convert both lengths to meters and multiply.";
+        Output: "The area in square meters.";
+    } {
+        Int a = This.Convert(left, leftUnit, "m");
+        If (problem != "none") { Return 0; }
+        Int b = This.Convert(right, rightUnit, "m");
+        If (problem != "none") { Return 0; }
+        unit = "m2";
+        stored = a * b;
+        Return stored;
+    }
+
+    Public Function DivideQuantities(Int left, String leftUnit, Int right, String rightUnit) -> Int
+    Explain {
+        Description: "Divide a length by a duration.";
+        Input: left = "Length", leftUnit = "Length unit", right = "Duration", rightUnit = "Time unit";
+        Processing: "Convert to meters and seconds, then divide.";
+        Output: "The speed in meters per second.";
+    } {
+        Int distance = This.Convert(left, leftUnit, "m");
+        If (problem != "none") { Return 0; }
+        Int duration = This.Convert(right, rightUnit, "s");
+        If (problem != "none" || duration == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        unit = "m/s";
+        stored = This.Exact(distance, duration);
+        Return stored;
+    }
+
+    Public Function ScaleQuantity(Int value, String source, Int factor) -> Int
+    Explain {
+        Description: "Scale a quantity.";
+        Input: value = "Value", source = "Unit", factor = "Scale";
+        Processing: "Multiply the value and keep the unit.";
+        Output: "The scaled value.";
+    } {
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        unit = source;
+        stored = value * factor;
+        problem = "none";
+        Return stored;
+    }
+
+    Public Function CompareQuantities(Int left, String leftUnit, Int right, String rightUnit) -> Int
+    Explain {
+        Description: "Compare two quantities.";
+        Input: left = "Left value", leftUnit = "Left unit", right = "Right value", rightUnit = "Right unit";
+        Processing: "Convert the right value into the left unit.";
+        Output: "Negative, zero, or positive.";
+    } {
+        Int converted = This.Convert(right, rightUnit, leftUnit);
+        If (problem != "none") { Return 0; }
+        If (left < converted) { Return -1; }
+        If (left > converted) { Return 1; }
+        Return 0;
+    }
+
+    Public Function NormalizeQuantity(Int value, String source) -> Int
+    Explain {
+        Description: "Convert a quantity to its SI base unit.";
+        Input: value = "Value", source = "Unit";
+        Processing: "Length becomes meters, mass grams, time seconds, and other dimensions use their stored base.";
+        Output: "The base value.";
+    } {
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        String base = This.GetSIBaseUnits(dim);
+        Return This.Convert(value, source, base);
+    }
+
+    Public Function GetDimension(String source) -> Int
+    Explain {
+        Description: "Return the dimension code of a unit.";
+        Input: source = "Unit";
+        Processing: "Look up the unit.";
+        Output: "The dimension, or -1 when the unit is unknown.";
+    } {
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return -1;
+        }
+        problem = "none";
+        Return dim;
+    }
+
+    Public Function GetUnit() -> String
+    Explain {
+        Description: "Return the unit of the latest quantity.";
+        Input: "No parameters";
+        Processing: "Read the stored unit.";
+        Output: "The unit symbol.";
+    } {
+        Return unit;
+    }
+
+    Public Function GetBaseValue(Int value, String source) -> Int
+    Explain {
+        Description: "Return a value in its base unit.";
+        Input: value = "Value", source = "Unit";
+        Processing: "Normalize the quantity.";
+        Output: "The base value.";
+    } {
+        Return This.NormalizeQuantity(value, source);
+    }
+
+    Public Function GetDisplayValue() -> Int
+    Explain {
+        Description: "Return the latest stored quantity.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The value.";
+    } {
+        Return stored;
+    }
+
+    Public Function AreCompatible(String left, String right) -> Int
+    Explain {
+        Description: "Report whether two units share a dimension.";
+        Input: left = "Left unit", right = "Right unit";
+        Processing: "Compare their dimension codes.";
+        Output: "One when they are compatible.";
+    } {
+        If (This.Bind(left) == 0) { Return 0; }
+        Int leftDim = dim;
+        If (This.Bind(right) == 0) { Return 0; }
+        If (leftDim == dim) { Return 1; }
+        Return 0;
+    }
+
+    Public Function HasSameDimension(String left, String right) -> Int
+    Explain {
+        Description: "Report whether two units have the same dimension.";
+        Input: left = "Left unit", right = "Right unit";
+        Processing: "Use the compatibility test.";
+        Output: "One when the dimensions match.";
+    } {
+        Return This.AreCompatible(left, right);
+    }
+
+    Public Function ValidateDimensions(String left, String right) -> Int
+    Explain {
+        Description: "Validate that two units may be added.";
+        Input: left = "Left unit", right = "Right unit";
+        Processing: "Addition requires the same dimension.";
+        Output: "One when the addition is valid.";
+    } {
+        Return This.AreCompatible(left, right);
+    }
+
+    Public Function MultiplyDimensions(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two dimension codes.";
+        Input: left = "Left dimension", right = "Right dimension";
+        Processing: "Length times length is area. Area times length is volume.";
+        Output: "The product dimension, or -1 when it is not defined.";
+    } {
+        If (left == 0 && right == 0) { Return 4; }
+        If (left == 4 && right == 0) { Return 5; }
+        If (left == 0 && right == 4) { Return 5; }
+        problem = "dimension";
+        Return -1;
+    }
+
+    Public Function DivideDimensions(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two dimension codes.";
+        Input: left = "Left dimension", right = "Right dimension";
+        Processing: "Length over time is speed. Speed over time is acceleration.";
+        Output: "The quotient dimension, or -1 when it is not defined.";
+    } {
+        If (left == 0 && right == 2) { Return 6; }
+        If (left == 6 && right == 2) { Return 7; }
+        problem = "dimension";
+        Return -1;
+    }
+
+    Public Function PowerDimension(Int dimension, Int exponent) -> Int
+    Explain {
+        Description: "Raise a dimension to a power.";
+        Input: dimension = "Dimension", exponent = "2 or 3";
+        Processing: "Length squared is area. Length cubed is volume.";
+        Output: "The resulting dimension, or -1.";
+    } {
+        If (dimension == 0 && exponent == 2) { Return 4; }
+        If (dimension == 0 && exponent == 3) { Return 5; }
+        If (exponent == 1) { Return dimension; }
+        problem = "dimension";
+        Return -1;
+    }
+
+    Public Function DimensionlessResult(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is a plain number.";
+        Input: value = "Value";
+        Processing: "A dimensionless desk result has dimension code -1 only when the latest unit is dB.";
+        Output: "One for decibels.";
+    } {
+        stored = value;
+        If (This.Bind("dB") == 1 && dim == 16) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GetSIBaseUnits(Int dimension) -> String
+    Explain {
+        Description: "Return the SI symbol for a dimension.";
+        Input: dimension = "Dimension code";
+        Processing: "Use the base symbol stored for that dimension.";
+        Output: "The symbol, or an empty string.";
+    } {
+        If (dimension == 0) { Return "m"; }
+        If (dimension == 1) { Return "g"; }
+        If (dimension == 2) { Return "s"; }
+        If (dimension == 3) { Return "K"; }
+        If (dimension == 4) { Return "m2"; }
+        If (dimension == 5) { Return "mL"; }
+        If (dimension == 6) { Return "m/s"; }
+        If (dimension == 7) { Return "m/s2"; }
+        If (dimension == 8) { Return "N"; }
+        If (dimension == 9) { Return "Pa"; }
+        If (dimension == 10) { Return "J"; }
+        If (dimension == 11) { Return "W"; }
+        If (dimension == 12) { Return "A"; }
+        If (dimension == 13) { Return "V"; }
+        If (dimension == 14) { Return "ohm"; }
+        If (dimension == 15) { Return "Hz"; }
+        If (dimension == 17) { Return "bit"; }
+        If (dimension == 18) { Return "deg"; }
+        If (dimension == 19) { Return "mol"; }
+        Return "";
+    }
+
+    Public Function RegisterUnit(String symbol, String name, Int dimension, Int numerator, Int denominator) -> Int
+    Explain {
+        Description: "Register a custom unit.";
+        Input: symbol = "Symbol", name = "Name", dimension = "Dimension code", numerator = "Numerator", denominator = "Denominator";
+        Processing: "Store up to eight custom units.";
+        Output: "The slot, or -1 when the table is full.";
+    } {
+        If (denominator == 0) {
+            problem = "divide";
+            Return -1;
+        }
+        Int index = 0;
+        While (index < 8) {
+            If (customUsed[index] == 0 || customSymbol[index] == symbol) {
+                customUsed[index] = 1;
+                customSymbol[index] = symbol;
+                customName[index] = name;
+                customDim[index] = dimension;
+                customNum[index] = numerator;
+                customDen[index] = denominator;
+                problem = "none";
+                Return index;
+            }
+            index = index + 1;
+        }
+        problem = "size";
+        Return -1;
+    }
+
+    Public Function UnregisterUnit(String symbol) -> Int
+    Explain {
+        Description: "Remove a custom unit.";
+        Input: symbol = "Symbol";
+        Processing: "Clear a matching slot.";
+        Output: "One when a slot was cleared.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            If (customUsed[index] == 1 && customSymbol[index] == symbol) {
+                customUsed[index] = 0;
+                customSymbol[index] = "";
+                customName[index] = "";
+                Return 1;
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function FindUnit(String symbol) -> Int
+    Explain {
+        Description: "Report whether a unit is known.";
+        Input: symbol = "Symbol";
+        Processing: "Accept a builtin or a registered unit.";
+        Output: "One when the unit is known.";
+    } {
+        Return This.Bind(symbol);
+    }
+
+    Public Function FindUnits(Int dimension) -> Int
+    Explain {
+        Description: "Count the builtin units in a dimension.";
+        Input: dimension = "Dimension code";
+        Processing: "Return the fixed builtin count.";
+        Output: "The count.";
+    } {
+        If (dimension == 0) { Return 11; }
+        If (dimension == 1) { Return 8; }
+        If (dimension == 2) { Return 10; }
+        If (dimension == 3) { Return 4; }
+        If (dimension == 4) { Return 5; }
+        If (dimension == 5) { Return 7; }
+        If (dimension == 6) { Return 4; }
+        Return 0;
+    }
+
+    Public Function FindCompatibleUnits(String symbol) -> Int
+    Explain {
+        Description: "Count builtin units compatible with a unit.";
+        Input: symbol = "Unit";
+        Processing: "Use the unit dimension.";
+        Output: "The count, or zero when the unit is unknown.";
+    } {
+        Int dimension = This.GetDimension(symbol);
+        If (dimension < 0) { Return 0; }
+        Return This.FindUnits(dimension);
+    }
+
+    Public Function GetUnitSymbol(String name) -> String
+    Explain {
+        Description: "Return the symbol for a unit name.";
+        Input: name = "Name or symbol";
+        Processing: "Known names map to short symbols. A symbol is returned unchanged when it binds.";
+        Output: "The symbol.";
+    } {
+        If (name == "Meter" || name == "meter") { Return "m"; }
+        If (name == "Kilometer" || name == "kilometer") { Return "km"; }
+        If (name == "Gram" || name == "gram") { Return "g"; }
+        If (name == "Kilogram" || name == "kilogram") { Return "kg"; }
+        If (name == "Second" || name == "second") { Return "s"; }
+        If (name == "Celsius") { Return "C"; }
+        If (name == "Kelvin") { Return "K"; }
+        If (This.Bind(name) == 1) { Return name; }
+        Return "";
+    }
+
+    Public Function GetUnitName(String symbol) -> String
+    Explain {
+        Description: "Return the name of a unit.";
+        Input: symbol = "Symbol";
+        Processing: "Map the builtin symbols. Custom units use their registered name.";
+        Output: "The name.";
+    } {
+        If (symbol == "m") { Return "meter"; }
+        If (symbol == "km") { Return "kilometer"; }
+        If (symbol == "cm") { Return "centimeter"; }
+        If (symbol == "mm") { Return "millimeter"; }
+        If (symbol == "kg") { Return "kilogram"; }
+        If (symbol == "g") { Return "gram"; }
+        If (symbol == "s") { Return "second"; }
+        If (symbol == "C") { Return "celsius"; }
+        If (symbol == "K") { Return "kelvin"; }
+        If (symbol == "F") { Return "fahrenheit"; }
+        Int index = 0;
+        While (index < 8) {
+            If (customUsed[index] == 1 && customSymbol[index] == symbol) { Return customName[index]; }
+            index = index + 1;
+        }
+        If (This.Bind(symbol) == 1) { Return symbol; }
+        Return "";
+    }
+
+    Public Function GetUnitPrefix(String symbol) -> Int
+    Explain {
+        Description: "Return the power-of-ten prefix on a symbol.";
+        Input: symbol = "Symbol";
+        Processing: "Kilo is 3, milli is -3, mega is 6, and a bare unit is 0.";
+        Output: "The prefix exponent.";
+    } {
+        If (symbol == "km" || symbol == "kg" || symbol == "kPa" || symbol == "kJ" || symbol == "kW" || symbol == "kHz" || symbol == "kB" || symbol == "kohm" || symbol == "kcal") { Return 3; }
+        If (symbol == "mm" || symbol == "mg" || symbol == "ms" || symbol == "mL" || symbol == "mA" || symbol == "mV") { Return -3; }
+        If (symbol == "cm") { Return -2; }
+        If (symbol == "um" || symbol == "ug" || symbol == "us") { Return -6; }
+        If (symbol == "nm" || symbol == "ns") { Return -9; }
+        If (symbol == "MHz" || symbol == "MB") { Return 6; }
+        If (symbol == "GHz" || symbol == "GB") { Return 9; }
+        If (symbol == "TB") { Return 12; }
+        Return 0;
+    }
+
+    Public Function CreateMeasurement(Int value, String source, Int error) -> Int
+    Explain {
+        Description: "Store a measurement and its absolute uncertainty.";
+        Input: value = "Value", source = "Unit", error = "Absolute uncertainty";
+        Processing: "Keep the value, unit, and uncertainty.";
+        Output: "The value, or zero when the unit is unknown.";
+    } {
+        If (This.Bind(source) == 0) {
+            problem = "unit";
+            Return 0;
+        }
+        stored = value;
+        uncertainty = error;
+        unit = source;
+        problem = "none";
+        Return value;
+    }
+
+    Public Function ConvertMeasurement(String target) -> Int
+    Explain {
+        Description: "Convert the stored measurement.";
+        Input: target = "Target unit";
+        Processing: "Convert the value and the absolute uncertainty by the same factor.";
+        Output: "The converted value.";
+    } {
+        String source = unit;
+        Int error = uncertainty;
+        Int converted = This.Convert(stored, source, target);
+        If (problem != "none") { Return 0; }
+        uncertainty = This.Convert(error, source, target);
+        stored = converted;
+        unit = target;
+        Return stored;
+    }
+
+    Public Function PropagateUncertainty(Int operation, Int left, Int right) -> Int
+    Explain {
+        Description: "Propagate absolute uncertainties.";
+        Input: operation = "0 add or subtract, 1 multiply or divide", left = "Left uncertainty", right = "Right uncertainty";
+        Processing: "Addition adds the absolute uncertainties. Multiplication adds them as a conservative bound.";
+        Output: "The combined uncertainty.";
+    } {
+        otherUncertainty = right;
+        If (operation == 0 || operation == 1) { Return left + right; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function CalculateRelativeUncertainty(Int value, Int error) -> Int
+    Explain {
+        Description: "Return a relative uncertainty as a percent.";
+        Input: value = "Value", error = "Absolute uncertainty";
+        Processing: "Divide 100 times the uncertainty by the value.";
+        Output: "The percent, or zero when the value is zero.";
+    } {
+        If (value == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Return This.Exact(100 * error, value);
+    }
+
+    Public Function CalculateAbsoluteUncertainty() -> Int
+    Explain {
+        Description: "Return the stored absolute uncertainty.";
+        Input: "No parameters";
+        Processing: "Read the measurement uncertainty.";
+        Output: "The uncertainty.";
+    } {
+        Return uncertainty;
+    }
+
+    Public Function SpeedOfLight() -> Int
+    Explain {
+        Description: "Return the speed of light in meters per second.";
+        Input: "No parameters";
+        Processing: "Use the defined constant.";
+        Output: "299792458.";
+    } {
+        Return 299792458;
+    }
+
+    Public Function StandardGravity() -> Int
+    Explain {
+        Description: "Return standard gravity in centimeters per second squared.";
+        Input: "No parameters";
+        Processing: "Use 981, which is 9.81 meters per second squared.";
+        Output: "981.";
+    } {
+        Return 981;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest unit error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Bind(String symbol) -> Int {
+        known = 0;
+        tempCode = 0;
+        If (symbol == "mm") { Return This.SetUnit(0, 1, 1); }
+        If (symbol == "cm") { Return This.SetUnit(0, 10, 1); }
+        If (symbol == "m") { Return This.SetUnit(0, 1000, 1); }
+        If (symbol == "km") { Return This.SetUnit(0, 1000000, 1); }
+        If (symbol == "um") { Return This.SetUnit(0, 1, 1000); }
+        If (symbol == "nm") { Return This.SetUnit(0, 1, 1000000); }
+        If (symbol == "mi") { Return This.SetUnit(0, 1609344, 1); }
+        If (symbol == "yd") { Return This.SetUnit(0, 9144, 10); }
+        If (symbol == "ft") { Return This.SetUnit(0, 3048, 10); }
+        If (symbol == "in") { Return This.SetUnit(0, 254, 10); }
+        If (symbol == "nmi") { Return This.SetUnit(0, 1852000, 1); }
+        If (symbol == "mg") { Return This.SetUnit(1, 1, 1); }
+        If (symbol == "g") { Return This.SetUnit(1, 1000, 1); }
+        If (symbol == "kg") { Return This.SetUnit(1, 1000000, 1); }
+        If (symbol == "ug") { Return This.SetUnit(1, 1, 1000); }
+        If (symbol == "t") { Return This.SetUnit(1, 1000000000, 1); }
+        If (symbol == "lb") { Return This.SetUnit(1, 453592, 1); }
+        If (symbol == "oz") { Return This.SetUnit(1, 453592, 16); }
+        If (symbol == "st") { Return This.SetUnit(1, 6350288, 1); }
+        If (symbol == "ms") { Return This.SetUnit(2, 1, 1); }
+        If (symbol == "s") { Return This.SetUnit(2, 1000, 1); }
+        If (symbol == "us") { Return This.SetUnit(2, 1, 1000); }
+        If (symbol == "ns") { Return This.SetUnit(2, 1, 1000000); }
+        If (symbol == "min") { Return This.SetUnit(2, 60000, 1); }
+        If (symbol == "h") { Return This.SetUnit(2, 3600000, 1); }
+        If (symbol == "d") { Return This.SetUnit(2, 86400000, 1); }
+        If (symbol == "wk") { Return This.SetUnit(2, 604800000, 1); }
+        If (symbol == "mo") { Return This.SetUnit(2, 2592000000, 1); }
+        If (symbol == "yr") { Return This.SetUnit(2, 31536000000, 1); }
+        If (symbol == "C") { Return This.SetTemperature(0); }
+        If (symbol == "F") { Return This.SetTemperature(1); }
+        If (symbol == "K") { Return This.SetTemperature(2); }
+        If (symbol == "R") { Return This.SetTemperature(3); }
+        If (symbol == "m2") { Return This.SetUnit(4, 1, 1); }
+        If (symbol == "km2") { Return This.SetUnit(4, 1000000, 1); }
+        If (symbol == "ha") { Return This.SetUnit(4, 10000, 1); }
+        If (symbol == "ac") { Return This.SetUnit(4, 4047, 1); }
+        If (symbol == "ft2") { Return This.SetUnit(4, 929, 10000); }
+        If (symbol == "mL") { Return This.SetUnit(5, 1, 1); }
+        If (symbol == "L") { Return This.SetUnit(5, 1000, 1); }
+        If (symbol == "m3") { Return This.SetUnit(5, 1000000, 1); }
+        If (symbol == "gal") { Return This.SetUnit(5, 3785, 1); }
+        If (symbol == "qt") { Return This.SetUnit(5, 3785, 4); }
+        If (symbol == "pt") { Return This.SetUnit(5, 3785, 8); }
+        If (symbol == "floz") { Return This.SetUnit(5, 3785, 128); }
+        If (symbol == "m/s") { Return This.SetUnit(6, 1000, 1); }
+        If (symbol == "km/h") { Return This.SetUnit(6, 2500, 9); }
+        If (symbol == "mph") { Return This.SetUnit(6, 1609344, 3600); }
+        If (symbol == "kn") { Return This.SetUnit(6, 1852000, 3600); }
+        If (symbol == "m/s2") { Return This.SetUnit(7, 1, 1); }
+        If (symbol == "g0") { Return This.SetUnit(7, 981, 100); }
+        If (symbol == "N") { Return This.SetUnit(8, 1, 1); }
+        If (symbol == "dyn") { Return This.SetUnit(8, 1, 100000); }
+        If (symbol == "Pa") { Return This.SetUnit(9, 1, 1); }
+        If (symbol == "kPa") { Return This.SetUnit(9, 1000, 1); }
+        If (symbol == "bar") { Return This.SetUnit(9, 100000, 1); }
+        If (symbol == "atm") { Return This.SetUnit(9, 101325, 1); }
+        If (symbol == "psi") { Return This.SetUnit(9, 6895, 1); }
+        If (symbol == "J") { Return This.SetUnit(10, 1, 1); }
+        If (symbol == "kJ") { Return This.SetUnit(10, 1000, 1); }
+        If (symbol == "cal") { Return This.SetUnit(10, 4184, 1000); }
+        If (symbol == "kcal") { Return This.SetUnit(10, 4184, 1); }
+        If (symbol == "Wh") { Return This.SetUnit(10, 3600, 1); }
+        If (symbol == "kWh") { Return This.SetUnit(10, 3600000, 1); }
+        If (symbol == "W") { Return This.SetUnit(11, 1, 1); }
+        If (symbol == "kW") { Return This.SetUnit(11, 1000, 1); }
+        If (symbol == "hp") { Return This.SetUnit(11, 746, 1); }
+        If (symbol == "A") { Return This.SetUnit(12, 1, 1); }
+        If (symbol == "mA") { Return This.SetUnit(12, 1, 1000); }
+        If (symbol == "V") { Return This.SetUnit(13, 1, 1); }
+        If (symbol == "mV") { Return This.SetUnit(13, 1, 1000); }
+        If (symbol == "ohm") { Return This.SetUnit(14, 1, 1); }
+        If (symbol == "kohm") { Return This.SetUnit(14, 1000, 1); }
+        If (symbol == "Hz") { Return This.SetUnit(15, 1, 1); }
+        If (symbol == "kHz") { Return This.SetUnit(15, 1000, 1); }
+        If (symbol == "MHz") { Return This.SetUnit(15, 1000000, 1); }
+        If (symbol == "GHz") { Return This.SetUnit(15, 1000000000, 1); }
+        If (symbol == "dB") { Return This.SetUnit(16, 1, 1); }
+        If (symbol == "bit") { Return This.SetUnit(17, 1, 1); }
+        If (symbol == "B") { Return This.SetUnit(17, 8, 1); }
+        If (symbol == "kB") { Return This.SetUnit(17, 8000, 1); }
+        If (symbol == "MB") { Return This.SetUnit(17, 8000000, 1); }
+        If (symbol == "GB") { Return This.SetUnit(17, 8000000000, 1); }
+        If (symbol == "TB") { Return This.SetUnit(17, 8000000000000, 1); }
+        If (symbol == "deg") { Return This.SetUnit(18, 1, 1); }
+        If (symbol == "rad") { Return This.SetUnit(18, 57296, 1000); }
+        If (symbol == "mol") { Return This.SetUnit(19, 1, 1); }
+        Return This.BindCustom(symbol);
+    }
+
+    Private Function SetUnit(Int dimension, Int numerator, Int denominator) -> Int {
+        dim = dimension;
+        num = numerator;
+        den = denominator;
+        known = 1;
+        Return 1;
+    }
+
+    Private Function SetTemperature(Int code) -> Int {
+        dim = 3;
+        num = 1;
+        den = 1;
+        tempCode = code;
+        known = 1;
+        Return 1;
+    }
+
+    Private Function BindCustom(String symbol) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            If (customUsed[index] == 1 && customSymbol[index] == symbol) {
+                dim = customDim[index];
+                num = customNum[index];
+                den = customDen[index];
+                known = 1;
+                Return 1;
+            }
+            index = index + 1;
+        }
+        known = 0;
+        Return 0;
+    }
+
+    Private Function Temperature(Int value, Int from, Int to) -> Int {
+        If (from == to) { Return value; }
+        Int celsius = value;
+        If (from == 1) { celsius = This.Exact((value - 32) * 5, 9); }
+        If (from == 2) { celsius = value - 273; }
+        If (from == 3) { celsius = This.Exact((value - 492) * 5, 9); }
+        If (problem == "exact") { Return 0; }
+        If (to == 0) { Return celsius; }
+        If (to == 2) { Return celsius + 273; }
+        If (to == 1) { Return This.Exact(celsius * 9, 5) + 32; }
+        Return This.Exact(celsius * 9, 5) + 492;
+    }
+
+    Private Function TemperatureFactor(String target) -> Int {
+        If (target == "C" || target == "K") { Return 1; }
+        problem = "exact";
+        Return 0;
+    }
+
+    Private Function Exact(Int value, Int divisor) -> Int {
+        If (divisor == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Int sign = 1;
+        Int magnitude = value;
+        Int denominator = divisor;
+        If (magnitude < 0) {
+            sign = -1;
+            magnitude = 0 - magnitude;
+        }
+        If (denominator < 0) {
+            sign = 0 - sign;
+            denominator = 0 - denominator;
+        }
+        Int quote = magnitude / denominator;
+        If (quote * denominator != magnitude) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return sign * quote;
+    }
+}

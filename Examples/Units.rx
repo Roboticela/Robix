@@ -1,0 +1,76 @@
+// Robix.Units: quantities, dimensions, and exact unit conversion.
+Package Robotics.Units;
+
+Import Robix.Core;
+Import Robix.Units;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise unit conversion and dimensions.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the units desk.";
+    Output: "The units report.";
+} {
+    UnitsDesk desk = UnitsDesk();
+    Print(desk.ConvertLength(1, "km", "m"));
+    Print(desk.ConvertLength(1, "ft", "in"));
+    Print(desk.ConvertLength(1, "mi", "ft"));
+    Print(desk.ConvertMass(1, "kg", "g"));
+    Print(desk.ConvertMass(1, "lb", "oz"));
+    Print(desk.ConvertTime(1, "h", "min"));
+    Print(desk.ConvertTime(1, "d", "h"));
+    Print(desk.ConvertVolume(1, "L", "mL"));
+    Print(desk.ConvertVolume(1, "gal", "qt"));
+    Print(desk.ConvertSpeed(5, "m/s", "km/h"));
+    Print(desk.ConvertPressure(1, "bar", "kPa"));
+    Print(desk.ConvertEnergy(1, "kWh", "kJ"));
+    Print(desk.Convert(1, "N", "dyn"));
+    Print(desk.Convert(1, "kW", "W"));
+    Print(desk.Convert(1, "A", "mA"));
+    Print(desk.Convert(1, "B", "bit"));
+    Print(desk.ConvertTemperature(0, "C", "F"));
+    Print(desk.ConvertTemperature(0, "C", "K"));
+    Print(desk.ConvertTemperature(100, "C", "F"));
+    Print(desk.GetConversionFactor("km", "m"));
+    Print(desk.GetConversionOffset("C", "K"));
+    Print(desk.TryConvert(2, "km", "m"));
+    Print(desk.AddQuantities(500, "m", 1, "km"));
+    Print(desk.SubtractQuantities(2000, "m", 1, "km"));
+    Print(desk.MultiplyQuantities(2, "m", 3, "m"));
+    Print(desk.DivideQuantities(100, "m", 5, "s"));
+    Print(desk.ScaleQuantity(3, "m", 4));
+    Print(desk.CompareQuantities(2, "km", 2000, "m"));
+    Print(desk.NormalizeQuantity(2, "km"));
+    Print(desk.GetDimension("kg"));
+    Print(desk.GetUnit());
+    Print(desk.GetBaseValue(3, "km"));
+    Print(desk.GetDisplayValue());
+    Print(desk.AreCompatible("m", "km"));
+    Print(desk.AreCompatible("m", "kg"));
+    Print(desk.HasSameDimension("s", "h"));
+    Print(desk.ValidateDimensions("m", "ft"));
+    Print(desk.MultiplyDimensions(0, 0));
+    Print(desk.DivideDimensions(0, 2));
+    Print(desk.PowerDimension(0, 3));
+    Print(desk.GetSIBaseUnits(0));
+    Print(desk.FindUnit("m"));
+    Print(desk.FindUnits(0));
+    Print(desk.FindCompatibleUnits("km"));
+    Print(desk.GetUnitSymbol("Meter"));
+    Print(desk.GetUnitName("kg"));
+    Print(desk.GetUnitPrefix("km"));
+    Print(desk.GetUnitPrefix("mm"));
+    Print(desk.RegisterUnit("fur", "furlong", 0, 201168, 1));
+    Print(desk.ConvertLength(1, "fur", "yd"));
+    Print(desk.UnregisterUnit("fur"));
+    Print(desk.CreateMeasurement(1000, "mm", 1000));
+    Print(desk.ConvertMeasurement("m"));
+    Print(desk.CalculateAbsoluteUncertainty());
+    Print(desk.CalculateRelativeUncertainty(50, 5));
+    Print(desk.PropagateUncertainty(0, 2, 3));
+    Print(desk.SpeedOfLight());
+    Print(desk.StandardGravity());
+    Print(desk.Fault());
+    Return 0;
+}
