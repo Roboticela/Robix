@@ -11,8 +11,8 @@ The current project build typechecks each file alone and then wraps that file as
 - [x] Clear the strict checker. `Robix self` now reports 0 errors. The nullable checker follows `&&`, `||`, and an early `Return` after `== Null`, and a zero-argument call of a declared type stays a constructor when a method has the same name. `Args<T>` is accepted where `List<T>` is expected.
 - [x] Merge partial classes, such as `Parser`, before type checking and lowering. `Robix self` folds later parts of a class into the first part.
 - [x] Make that module pass the strict checker. Both images report 0 errors and about 720 warnings.
-- [ ] Lower the module to RXIR and encode every opcode it uses. A `; skip` line means the assembler is not finished. Lowering and assembly now finish. The text optimizer does not, so `Robix self` assembles the unoptimized RXIR. The first image still has 5253 member notes, 1381 other notes, 530 null notes, 318 character notes, 407 unbound returns, and 36 prints. String addresses, negation, division, and remainder are encoded. A `For` over a list lowers to `Count` and `At` calls.
-- [ ] Write `Build/Self/Robix.app` and `Build/Self/Robixc.app` as one Linux x86-64 ELF each.
+- [x] Lower the module to RXIR and encode every opcode it uses. A `; skip` line means the assembler is not finished. Member loads and stores, null, characters, enum values, index loads, shifts, and returns are encoded. Neither image emits a `; skip` instruction. String data keeps newlines inside one instruction. The text optimizer stays off.
+- [ ] Write `Build/Self/Robix.app` and `Build/Self/Robixc.app` as one Linux x86-64 ELF each. Assembly stops on the first missing label, `List`. Calls such as `Count` and `At` need a label in the image before the ELF can be written.
 - [ ] `Build/Self/Robix.app run Examples/HelloRobot.rx` prints `Hello, Robix`.
 - [ ] `Build/Self/Robixc.app` compiles `Examples/HelloRobot.rx` into an ELF that prints `Hello, Robix` and `15`.
 - [ ] Run `Robix self` with `Build/Self/Robix.app` and confirm the second generation also runs Hello.

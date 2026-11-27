@@ -86,7 +86,7 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.36{/}");
+            Print("{accent}Robix{/} {muted}0.0.37{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
@@ -635,8 +635,10 @@ Public Class ProjectEngine {
         RxAssembler assembler = RxAssembler();
         assembler.Target = "linux-x64";
         String rxasm = assembler.WithStart(assembler.Select(result.Rxir));
-        Int skipAt = rxasm.IndexOf("; skip");
+        Int skipAt = rxasm.IndexOf("\n; skip");
+        If (skipAt < 0 && rxasm.StartsWith("; skip")) { skipAt = 0; }
         If (skipAt >= 0) {
+            If (rxasm.GetChar(skipAt) == 10) { skipAt = skipAt + 1; }
             Int start = skipAt;
             While (start > 0 && rxasm.GetChar(start - 1) != 10) { start = start - 1; }
             Int end = skipAt;
@@ -653,7 +655,9 @@ Public Class ProjectEngine {
         }
         List<Int> code = assembler.Assemble(rxasm);
         If (code.Count() == 0) {
-            This.Diagnostics.Add(output + " failed to assemble.");
+            String why = assembler.FailText;
+            If (why == "") { why = "assembly failed"; }
+            This.Diagnostics.Add(output + " failed to assemble: " + why);
             Return False;
         }
         Directory.Create("Build/Self");

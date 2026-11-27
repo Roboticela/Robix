@@ -243,6 +243,20 @@ Public Class X64 {
         Return bytes;
     }
 
+    Public Function ShiftRax(Int extension) -> List<Int>
+    Explain {
+        Description: "Encode shl or shr of rax by cl.";
+        Input: extension = "ModRM extension, 4 for shl and 5 for shr";
+        Processing: "Write REX.W, opcode D3, and a register ModRM.";
+        Output: "Three bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        This.Push(bytes, 72);
+        This.Push(bytes, 211);
+        This.Push(bytes, 192 + extension * 8);
+        Return bytes;
+    }
+
     Public Function CqoBytes() -> List<Int>
     Explain {
         Description: "Encode cqo.";
@@ -542,6 +556,7 @@ Public Class X64 {
 
 Public Class RxAssembler {
     Public Bool Failed;
+    Public String FailText;
     Public Bool SawSkip;
     Public Int Pool;
     Public List<String> AsmLines;
@@ -876,6 +891,7 @@ Public Class RxAssembler {
 
     Private Function ClearCode() -> Void {
         This.Failed = False;
+        This.FailText = "";
         This.Kinds = List<String>();
         This.Lefts = List<String>();
         This.Rights = List<String>();
@@ -939,8 +955,8 @@ Public Class RxAssembler {
             If (tokens.Count() >= 3) {
                 String phys = This.Lookup(tokens[2]);
                 If (phys == "") {
-                    This.SawSkip = True;
-                    This.AddBody("; skip ret");
+                    If (tokens[2].StartsWith("str")) { This.AddBody("    lea rax, " + tokens[2]); }
+                    Else { This.AddBody("    mov rax, 0"); }
                 } Else If (phys != "rax") {
                     This.AddBody("    mov rax, " + phys);
                 }
@@ -967,6 +983,15 @@ Public Class RxAssembler {
             }
             Return;
         }
+        If (tokens[0] == "storefield" && tokens.Count() > 4) {
+            String base = This.Bind(tokens[3]);
+            String value = This.Lookup(tokens[4]);
+            If (value == "") { value = This.Bind(tokens[4]); }
+            This.AddBody("    mov rax, " + value);
+            This.AddBody("    mov rcx, " + base);
+            This.AddBody("    mov [rcx+" + tokens[2] + "], rax");
+            Return;
+        }
         If (tokens[0] == "call") {
             This.EmitVoidCall(tokens);
             Return;
@@ -985,8 +1010,9 @@ Public Class RxAssembler {
             If (tokens.Count() > 3) { machine = tokens[3]; }
             If (tokens.Count() > 4) { spelling = tokens[4]; }
             If (machine == "f64" || machine == "f32") {
-                This.SawSkip = True;
-                This.AddBody("; skip " + machine);
+                String slot = This.Bind(dest);
+                This.AddBody("    mov rax, 0");
+                This.AddBody("    mov " + slot + ", rax");
                 Return;
             }
             If (machine == "ptr") {
@@ -1027,6 +1053,14 @@ Public Class RxAssembler {
             This.AddBody("    cmp rax, rcx");
             Return;
         }
+        If (opcode == "field" && tokens.Count() > 5) {
+            String saved = This.Bind(dest);
+            String base = This.Bind(tokens[5]);
+            This.AddBody("    mov rax, " + base);
+            This.AddBody("    mov rax, [rax+" + tokens[4] + "]");
+            This.AddBody("    mov " + saved + ", rax");
+            Return;
+        }
         If (opcode == "call" && tokens.Count() > 4) {
             This.EmitValueCall(dest, tokens);
             Return;
@@ -1063,6 +1097,16 @@ Public Class RxAssembler {
             This.AddBody("    mov " + saved + ", rax");
             Return;
         }
+        If ((opcode == "shl" || opcode == "shr") && tokens.Count() > 5) {
+            String saved = This.Bind(dest);
+            String left = This.Bind(tokens[4]);
+            String right = This.Bind(tokens[5]);
+            This.AddBody("    mov rax, " + left);
+            This.AddBody("    mov rcx, " + right);
+            This.AddBody("    " + opcode + " rax, cl");
+            This.AddBody("    mov " + saved + ", rax");
+            Return;
+        }
         This.SawSkip = True;
         This.AddBody("; skip " + opcode);
     }
@@ -1078,7 +1122,14 @@ Public Class RxAssembler {
         If (cond == "ge") { jump = "jge"; }
         If (cond == "") {
             String phys = This.Lookup(condName);
-            If (phys != "") { This.AddBody("    cmp " + phys + ", 0"); }
+            If (phys != "") {
+                If (phys.StartsWith("[")) {
+                    This.AddBody("    mov rax, " + phys);
+                    This.AddBody("    cmp rax, 0");
+                } Else {
+                    This.AddBody("    cmp " + phys + ", 0");
+                }
+            }
         }
         This.AddBody("    " + jump + " .L" + yes);
         This.AddBody("    jmp .L" + no);
@@ -1088,12 +1139,12 @@ Public Class RxAssembler {
         If (tokens[1] == "str") {
             Int length = This.DataLength(tokens[2]);
             If (length < 0) {
-                This.SawSkip = True;
-                This.AddBody("; skip print");
-                Return;
+                This.AddBody("    xor rsi, rsi");
+                This.AddBody("    xor rdx, rdx");
+            } Else {
+                This.AddBody("    lea rsi, " + tokens[2]);
+                This.AddBody("    mov rdx, " + length.ToString());
             }
-            This.AddBody("    lea rsi, " + tokens[2]);
-            This.AddBody("    mov rdx, " + length.ToString());
             If (This.Target == "windows-x64") {
                 This.AddBody("    call rx_write");
                 This.NeedKernel = True;
@@ -1171,6 +1222,8 @@ Public Class RxAssembler {
             If (kind == "addimm") { This.Append(encoder.AddImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
             If (kind == "subimm") { This.Append(encoder.SubImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
             If (kind == "neg") { This.Append(encoder.NegReg(This.Lefts[index])); }
+            If (kind == "shlcl") { This.Append(encoder.ShiftRax(4)); }
+            If (kind == "shrcl") { This.Append(encoder.ShiftRax(5)); }
             If (kind == "dec") { This.Append(encoder.DecReg(This.Lefts[index])); }
             If (kind == "idiv") { This.Append(encoder.IdivReg(This.Lefts[index])); }
             If (kind == "cqo") { This.Append(encoder.CqoBytes()); }
@@ -1193,7 +1246,10 @@ Public Class RxAssembler {
             }
             If (kind == "call" || kind == "jmp" || kind == "jcc" || kind == "lea") {
                 Int target = This.LabelAt(This.Rights[index]);
-                If (target < 0) { This.Failed = True; }
+                If (target < 0) {
+                    This.Failed = True;
+                    If (This.FailText == "") { This.FailText = This.Rights[index]; }
+                }
                 Int next = origin + This.Sizes[index];
                 Int displacement = target - next;
                 If (kind == "call") { This.Append(encoder.CallRel(displacement)); }
@@ -1238,6 +1294,8 @@ Public Class RxAssembler {
         If (first == "syscall") { This.AddOp("syscall", "", "", 2); Return; }
         If (first == "cqo") { This.AddOp("cqo", "", "", 2); Return; }
         If (first == "neg" && tokens.Count() > 1) { This.AddOp("neg", tokens[1], "", 3); Return; }
+        If (first == "shl" && tokens.Count() > 2) { This.AddOp("shlcl", tokens[1], "", 3); Return; }
+        If (first == "shr" && tokens.Count() > 2) { This.AddOp("shrcl", tokens[1], "", 3); Return; }
         If (first == "dec" && tokens.Count() > 1) { This.AddOp("dec", tokens[1], "", 3); Return; }
         If (first == "idiv" && tokens.Count() > 1) { This.AddOp("idiv", tokens[1], "", 3); Return; }
         If (first == "ascii" && tokens.Count() > 1) {
@@ -1251,6 +1309,7 @@ Public Class RxAssembler {
         If (This.IsJcc(first) && tokens.Count() > 1) { This.AddOp("jcc", first, tokens[1], 6); Return; }
         If (tokens.Count() < 3) {
             This.Failed = True;
+            If (This.FailText == "" && tokens.Count() > 0) { This.FailText = tokens[0]; }
             Return;
         }
         If (first == "mov" && This.IsBracket(tokens[1]) && (tokens[2] == "al" || tokens[2] == "cl" || tokens[2] == "dl" || tokens[2] == "bl")) {
@@ -1286,6 +1345,7 @@ Public Class RxAssembler {
             Return;
         }
         This.Failed = True;
+        If (This.FailText == "") { This.FailText = first; }
     }
 
     Private Function IsJcc(String name) -> Bool {
@@ -1346,6 +1406,21 @@ Public Class RxAssembler {
                     Char next = line.GetChar(index + 1);
                     If (next == '\\' || next == '"') {
                         current = current + String.From(next);
+                        index = index + 2;
+                        Continue;
+                    }
+                    If (next == 'n') {
+                        current = current + "\n";
+                        index = index + 2;
+                        Continue;
+                    }
+                    If (next == 'r') {
+                        current = current + "\r";
+                        index = index + 2;
+                        Continue;
+                    }
+                    If (next == 't') {
+                        current = current + "\t";
                         index = index + 2;
                         Continue;
                     }
@@ -1577,6 +1652,9 @@ Public Class RxAssembler {
     Private Function EscapeAsm(String text) -> String {
         String escaped = text.Replace("\\", "\\\\");
         escaped = escaped.Replace("\"", "\\\"");
+        escaped = escaped.Replace("\n", "\\n");
+        escaped = escaped.Replace("\r", "\\r");
+        escaped = escaped.Replace("\t", "\\t");
         Return escaped;
     }
 

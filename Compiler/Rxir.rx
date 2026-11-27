@@ -760,7 +760,90 @@ Public Class RxProgram {
         If (node.Kind == AstKind.Missing || node.Kind == AstKind.Explain) {
             Return;
         }
-        This.AddLine("note " + This.NoteLabel(node));
+        This.AddLine("note " + This.KindName(node.Kind));
+    }
+
+    Private Function KindName(AstKind kind) -> String {
+        If (kind == AstKind.Missing) { Return "Missing"; }
+        If (kind == AstKind.Module) { Return "Module"; }
+        If (kind == AstKind.Package) { Return "Package"; }
+        If (kind == AstKind.Import) { Return "Import"; }
+        If (kind == AstKind.Permissions) { Return "Permissions"; }
+        If (kind == AstKind.Attribute) { Return "Attribute"; }
+        If (kind == AstKind.Explain) { Return "Explain"; }
+        If (kind == AstKind.ExplainEntry) { Return "ExplainEntry"; }
+        If (kind == AstKind.Variable) { Return "Variable"; }
+        If (kind == AstKind.Parameter) { Return "Parameter"; }
+        If (kind == AstKind.Function) { Return "Function"; }
+        If (kind == AstKind.Class) { Return "Class"; }
+        If (kind == AstKind.Field) { Return "Field"; }
+        If (kind == AstKind.Constructor) { Return "Constructor"; }
+        If (kind == AstKind.Destructor) { Return "Destructor"; }
+        If (kind == AstKind.EnumMember) { Return "EnumMember"; }
+        If (kind == AstKind.Implement) { Return "Implement"; }
+        If (kind == AstKind.Connect) { Return "Connect"; }
+        If (kind == AstKind.TypeAlias) { Return "TypeAlias"; }
+        If (kind == AstKind.Operator) { Return "Operator"; }
+        If (kind == AstKind.Macro) { Return "Macro"; }
+        If (kind == AstKind.Extern) { Return "Extern"; }
+        If (kind == AstKind.Block) { Return "Block"; }
+        If (kind == AstKind.If) { Return "If"; }
+        If (kind == AstKind.Match) { Return "Match"; }
+        If (kind == AstKind.MatchArm) { Return "MatchArm"; }
+        If (kind == AstKind.Pattern) { Return "Pattern"; }
+        If (kind == AstKind.For) { Return "For"; }
+        If (kind == AstKind.While) { Return "While"; }
+        If (kind == AstKind.DoWhile) { Return "DoWhile"; }
+        If (kind == AstKind.Repeat) { Return "Repeat"; }
+        If (kind == AstKind.Loop) { Return "Loop"; }
+        If (kind == AstKind.Break) { Return "Break"; }
+        If (kind == AstKind.Continue) { Return "Continue"; }
+        If (kind == AstKind.Return) { Return "Return"; }
+        If (kind == AstKind.Yield) { Return "Yield"; }
+        If (kind == AstKind.Throw) { Return "Throw"; }
+        If (kind == AstKind.Try) { Return "Try"; }
+        If (kind == AstKind.Catch) { Return "Catch"; }
+        If (kind == AstKind.Defer) { Return "Defer"; }
+        If (kind == AstKind.Using) { Return "Using"; }
+        If (kind == AstKind.Unsafe) { Return "Unsafe"; }
+        If (kind == AstKind.Asm) { Return "Asm"; }
+        If (kind == AstKind.Goto) { Return "Goto"; }
+        If (kind == AstKind.Label) { Return "Label"; }
+        If (kind == AstKind.Lock) { Return "Lock"; }
+        If (kind == AstKind.ExpressionStatement) { Return "ExpressionStatement"; }
+        If (kind == AstKind.Name) { Return "Name"; }
+        If (kind == AstKind.IntegerLiteral) { Return "IntegerLiteral"; }
+        If (kind == AstKind.FloatLiteral) { Return "FloatLiteral"; }
+        If (kind == AstKind.StringLiteral) { Return "StringLiteral"; }
+        If (kind == AstKind.CharLiteral) { Return "CharLiteral"; }
+        If (kind == AstKind.BooleanLiteral) { Return "BooleanLiteral"; }
+        If (kind == AstKind.NullLiteral) { Return "NullLiteral"; }
+        If (kind == AstKind.ArrayLiteral) { Return "ArrayLiteral"; }
+        If (kind == AstKind.MapLiteral) { Return "MapLiteral"; }
+        If (kind == AstKind.SetLiteral) { Return "SetLiteral"; }
+        If (kind == AstKind.TupleLiteral) { Return "TupleLiteral"; }
+        If (kind == AstKind.RecordLiteral) { Return "RecordLiteral"; }
+        If (kind == AstKind.ObjectLiteral) { Return "ObjectLiteral"; }
+        If (kind == AstKind.Binary) { Return "Binary"; }
+        If (kind == AstKind.Unary) { Return "Unary"; }
+        If (kind == AstKind.Ternary) { Return "Ternary"; }
+        If (kind == AstKind.Call) { Return "Call"; }
+        If (kind == AstKind.Member) { Return "Member"; }
+        If (kind == AstKind.Index) { Return "Index"; }
+        If (kind == AstKind.Range) { Return "Range"; }
+        If (kind == AstKind.Cast) { Return "Cast"; }
+        If (kind == AstKind.TypeCheck) { Return "TypeCheck"; }
+        If (kind == AstKind.Lambda) { Return "Lambda"; }
+        If (kind == AstKind.Await) { Return "Await"; }
+        If (kind == AstKind.Propagate) { Return "Propagate"; }
+        If (kind == AstKind.Unwrap) { Return "Unwrap"; }
+        If (kind == AstKind.Assignment) { Return "Assignment"; }
+        If (kind == AstKind.Type) { Return "Type"; }
+        If (kind == AstKind.Argument) { Return "Argument"; }
+        If (kind == AstKind.Constraint) { Return "Constraint"; }
+        If (kind == AstKind.Interpolation) { Return "Interpolation"; }
+        If (kind == AstKind.Test) { Return "Test"; }
+        Return "unknown";
     }
 
     Private Function NoteLabel(AstNode node) -> String {
@@ -798,7 +881,132 @@ Public Class RxProgram {
             This.AddOp("store " + value.Machine + " " + value.Name + ", " + slot);
             Return;
         }
-        This.AddLine("note unsupported");
+        If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            RxValue value = This.MakeValue(This.ConstName("0", "i64"), "i64");
+            If (node.Right != Null) { value = This.LowerExpr(node.Right); }
+            RxValue base = This.MakeValue(This.ConstName("0", "i64"), "i64");
+            If (node.Left.Left != Null) { base = This.LowerExpr(node.Left.Left); }
+            Int offset = This.FieldOffset(node.Left.Name);
+            This.AddOp("storefield i64 " + offset.ToString() + " " + base.Name + " " + value.Name);
+            Return;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Index) {
+            RxValue value = This.MakeValue(This.ConstName("0", "i64"), "i64");
+            If (node.Right != Null) { value = This.LowerExpr(node.Right); }
+            RxValue address = This.IndexAddress(node.Left);
+            This.AddOp("storefield i64 0 " + address.Name + " " + value.Name);
+            Return;
+        }
+        This.AddLine("note assign");
+    }
+
+    Private Function LowerMember(AstNode node) -> RxValue {
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Int ordinal = This.EnumOrdinal(node.Left.Name, node.Name);
+            If (ordinal >= 0) {
+                Return This.MakeValue(This.ConstName(ordinal.ToString(), "i64"), "i64");
+            }
+        }
+        RxValue base = This.MakeValue(This.ConstName("0", "i64"), "i64");
+        If (node.Left != Null) { base = This.LowerExpr(node.Left); }
+        Int offset = This.FieldOffset(node.Name);
+        String name = This.Fresh();
+        This.AddOp(name + " = field i64 " + offset.ToString() + " " + base.Name);
+        Return This.MakeValue(name, "i64");
+    }
+
+    Private Function LowerIndex(AstNode node) -> RxValue {
+        RxValue address = This.IndexAddress(node);
+        String name = This.Fresh();
+        This.AddOp(name + " = field i64 0 " + address.Name);
+        Return This.MakeValue(name, "i64");
+    }
+
+    Private Function IndexAddress(AstNode node) -> RxValue {
+        RxValue base = This.MakeValue(This.ConstName("0", "i64"), "i64");
+        If (node.Left != Null) { base = This.LowerExpr(node.Left); }
+        RxValue index = This.MakeValue(This.ConstName("0", "i64"), "i64");
+        If (node.Right != Null) { index = This.LowerExpr(node.Right); }
+        String eight = This.ConstName("8", "i64");
+        String scaled = This.Fresh();
+        This.AddOp(scaled + " = mul i64 " + index.Name + ", " + eight);
+        String address = This.Fresh();
+        This.AddOp(address + " = add i64 " + base.Name + ", " + scaled);
+        Return This.MakeValue(address, "i64");
+    }
+
+    Private Function FieldOffset(String name) -> Int {
+        If (name == "Kind") { Return 0; }
+        If (name == "Line") { Return 8; }
+        If (name == "Column") { Return 16; }
+        If (name == "EndLine") { Return 24; }
+        If (name == "EndColumn") { Return 32; }
+        If (name == "Name") { Return 40; }
+        If (name == "Text") { Return 48; }
+        If (name == "Operator") { Return 56; }
+        If (name == "Suffix") { Return 64; }
+        If (name == "Number") { Return 72; }
+        If (name == "FlagA") { Return 80; }
+        If (name == "FlagB") { Return 88; }
+        If (name == "FlagC") { Return 96; }
+        If (name == "Modifiers") { Return 104; }
+        If (name == "Attributes") { Return 112; }
+        If (name == "Children") { Return 120; }
+        If (name == "Parameters") { Return 128; }
+        If (name == "Members") { Return 136; }
+        If (name == "Type") { Return 144; }
+        If (name == "Body") { Return 152; }
+        If (name == "Initializer") { Return 160; }
+        If (name == "Condition") { Return 168; }
+        If (name == "Left") { Return 176; }
+        If (name == "Right") { Return 184; }
+        If (name == "Extra") { Return 192; }
+        If (name == "Otherwise") { Return 200; }
+        Int hash = 0;
+        Int index = 0;
+        While (index < name.Length()) {
+            hash = hash * 33 + name.GetChar(index);
+            If (hash < 0) { hash = 0 - hash; }
+            index = index + 1;
+        }
+        Int slot = hash - (hash / 64) * 64;
+        Return 256 + slot * 8;
+    }
+
+    Private Function EnumOrdinal(String typeName, String member) -> Int {
+        String catalog = "";
+        If (typeName == "AstKind") { catalog = "Missing;Module;Package;Import;Permissions;Attribute;Explain;ExplainEntry;Variable;Parameter;Function;Class;Field;Constructor;Destructor;EnumMember;Implement;Connect;TypeAlias;Operator;Macro;Extern;Block;If;Match;MatchArm;Pattern;For;While;DoWhile;Repeat;Loop;Break;Continue;Return;Yield;Throw;Try;Catch;Defer;Using;Unsafe;Asm;Goto;Label;Lock;ExpressionStatement;Name;IntegerLiteral;FloatLiteral;StringLiteral;CharLiteral;BooleanLiteral;NullLiteral;ArrayLiteral;MapLiteral;SetLiteral;TupleLiteral;RecordLiteral;ObjectLiteral;Binary;Unary;Ternary;Call;Member;Index;Range;Cast;TypeCheck;Lambda;Await;Propagate;Unwrap;Assignment;Type;Argument;Constraint;Interpolation;Test"; }
+        If (typeName == "TokenKind") { catalog = "EndOfFile;Unknown;Identifier;IntegerLiteral;FloatLiteral;StringLiteral;CharLiteral;OpenParen;CloseParen;OpenBracket;CloseBracket;OpenBrace;CloseBrace;Comma;Semicolon;Colon;Dot;At;Plus;Minus;Star;Slash;Percent;Assign;PlusAssign;MinusAssign;StarAssign;SlashAssign;PercentAssign;AmpersandAssign;PipeAssign;CaretAssign;EqualEqual;BangEqual;Less;Greater;LessEqual;GreaterEqual;Ampersand;Pipe;Caret;Tilde;LessLess;GreaterGreater;AmpAmp;PipePipe;Bang;PlusPlus;MinusMinus;Question;QuestionQuestion;QuestionDot;DotDot;DotDotEqual;DotDotDot;Arrow;FatArrow;CustomOperator;Package;Import;As;Permissions;Let;Var;Const;Function;Public;Private;Protected;Internal;Explain;Return;Async;Await;Iterator;Yield;Consteval;Params;Mut;Ref;Class;Struct;Interface;Trait;Enum;Service;Implement;Implements;Connect;Abstract;Override;Virtual;Sealed;Final;Static;Partial;Constructor;Destructor;Base;This;If;Else;Match;For;In;While;Do;Repeat;Loop;Break;Continue;Try;Catch;Finally;Throw;Defer;Using;Unsafe;Lock;Asm;Goto;Operator;Precedence;LeftAssociative;RightAssociative;And;Or;Not;Equal;Is;Where;Type;Macro;Extern;CallingConvention;True;False;Null;Void;Any;Dynamic;Int;UInt;Float;Double;Decimal;Bool;Char;String;Out;Clobber;Test"; }
+        If (typeName == "ValueKind") { catalog = "None;Integer;Float;Boolean;Text;Null;Array;Function;Void;Object"; }
+        If (typeName == "DiagnosticSeverity") { catalog = "Warning;Error"; }
+        If (catalog == "") { Return -1; }
+        String marked = ";" + catalog + ";";
+        String needle = ";" + member + ";";
+        Int at = marked.IndexOf(needle);
+        If (at < 0) { Return -1; }
+        Int ordinal = 0;
+        Int index = 0;
+        While (index < at) {
+            If (marked.GetChar(index) == ';') { ordinal = ordinal + 1; }
+            index = index + 1;
+        }
+        Return ordinal;
+    }
+
+    Private Function CharCode(String text) -> Int {
+        If (text.Length() == 0) { Return 0; }
+        Int index = 0;
+        If (text.GetChar(0) == 39 || text.GetChar(0) == 34) { index = 1; }
+        If (index < text.Length() && text.GetChar(index) == 92 && index + 1 < text.Length()) {
+            Int escaped = text.GetChar(index + 1);
+            If (escaped == 110) { Return 10; }
+            If (escaped == 116) { Return 9; }
+            If (escaped == 114) { Return 13; }
+            If (escaped == 48) { Return 0; }
+            Return escaped;
+        }
+        If (index < text.Length()) { Return text.GetChar(index); }
+        Return 0;
     }
 
     Private Function ConstName(String spelling, String machine) -> String {
@@ -880,22 +1088,27 @@ Public Class RxProgram {
             This.AddLine("data " + label + " \"" + This.Escape(node.Text) + "\"");
             Return This.MakeValue(label, "ptr");
         }
+        If (node.Kind == AstKind.CharLiteral) {
+            Return This.MakeValue(This.ConstName(This.CharCode(node.Text).ToString(), "i64"), "i64");
+        }
+        If (node.Kind == AstKind.NullLiteral) {
+            Return This.MakeValue(This.ConstName("0", "i64"), "i64");
+        }
         If (node.Kind == AstKind.Name) { Return This.LoadName(node.Name); }
         If (node.Kind == AstKind.Unary) { Return This.LowerUnary(node); }
         If (node.Kind == AstKind.Binary) { Return This.LowerBinary(node); }
         If (node.Kind == AstKind.Call) { Return This.LowerCall(node); }
-        If (node.Kind == AstKind.Index) {
-            String label = "str" + This.StringSerial.ToString();
-            This.StringSerial = This.StringSerial + 1;
-            This.AddLine("data " + label + " \"\"");
-            Return This.MakeValue(label, "ptr");
-        }
+        If (node.Kind == AstKind.Member) { Return This.LowerMember(node); }
+        If (node.Kind == AstKind.Index) { Return This.LowerIndex(node); }
         If (node.Kind == AstKind.Assignment) {
             This.LowerAssignment(node);
             If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.LoadName(node.Left.Name); }
+            If (node.Left != Null && node.Left.Kind == AstKind.Member) { Return This.LowerMember(node.Left); }
+            If (node.Left != Null && node.Left.Kind == AstKind.Index) { Return This.LowerIndex(node.Left); }
+            Return This.MakeValue(This.ConstName("0", "i64"), "i64");
         }
         String name = This.Fresh();
-        This.AddLine("note " + This.NoteLabel(node));
+        This.AddLine("note " + This.KindName(node.Kind));
         This.AddOp(name + " = const i64 0");
         Return This.MakeValue(name, "i64");
     }
@@ -914,7 +1127,19 @@ Public Class RxProgram {
             This.AddOp(name + " = cmp eq " + value.Machine + " " + value.Name + ", " + zero);
             Return This.MakeValue(name, "i8");
         }
-        This.AddLine("note unsupported");
+        If (node.Operator == "++" || node.Operator == "--") {
+            String opcode = "add";
+            If (node.Operator == "--") { opcode = "sub"; }
+            String one = This.ConstName("1", value.Machine);
+            This.AddOp(name + " = " + opcode + " " + value.Machine + " " + value.Name + ", " + one);
+            Return This.MakeValue(name, value.Machine);
+        }
+        If (node.Operator == "~") {
+            String mask = This.ConstName("-1", value.Machine);
+            This.AddOp(name + " = xor " + value.Machine + " " + value.Name + ", " + mask);
+            Return This.MakeValue(name, value.Machine);
+        }
+        This.AddLine("note unary");
         Return value;
     }
 
@@ -957,7 +1182,7 @@ Public Class RxProgram {
             Return This.MakeValue(name, "i8");
         }
         If (opcode == "") {
-            This.AddLine("note unsupported");
+            This.AddLine("note binary");
             This.AddOp(name + " = const i64 0");
             Return This.MakeValue(name, "i64");
         }
@@ -1008,7 +1233,7 @@ Public Class RxProgram {
                 }
                 Return This.MakeValue("", "void");
             }
-            This.AddLine("note unsupported");
+            This.AddLine("note print");
             Return This.MakeValue("", "void");
         }
         String args = "";
@@ -1107,6 +1332,9 @@ Public Class RxProgram {
     Private Function Escape(String text) -> String {
         String escaped = text.Replace("\\", "\\\\");
         escaped = escaped.Replace("\"", "\\\"");
+        escaped = escaped.Replace("\n", "\\n");
+        escaped = escaped.Replace("\r", "\\r");
+        escaped = escaped.Replace("\t", "\\t");
         Return escaped;
     }
 }
