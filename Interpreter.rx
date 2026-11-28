@@ -2173,10 +2173,13 @@ Public Class Interpreter {
             }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Directory") {
-            If (node.Left.Name == "Files") {
+            If (node.Left.Name == "Names" || node.Left.Name == "Files") {
                 Value list = This.MakeArray();
                 If (arguments.Count() > 0) {
-                    For file In Directory.Files(arguments[0].Text) {
+                    Var names = List<String>();
+                    If (node.Left.Name == "Names") { names = Directory.Names(arguments[0].Text); }
+                    If (node.Left.Name == "Files") { names = Directory.Files(arguments[0].Text); }
+                    For file In names {
                         list.Elements.Add(This.MakeText(file));
                     }
                 }

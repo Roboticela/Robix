@@ -2260,7 +2260,7 @@ Explain {
     Output: "The project path, or empty when none exists.";
 } {
     If (Files.Exists("Robix.rxp")) { Return "Robix.rxp"; }
-    For relative In Directory.Files(".") {
+    For relative In Directory.Names(".") {
         If (relative.EndsWith(".rxp") && !relative.Contains("/") && !relative.Contains("\\")) { Return relative; }
     }
     Return "";
@@ -2730,8 +2730,6 @@ Private Function FinishShown(Int code, String reason, Bool useColor) -> Executio
         Say("{muted}--------------------------------{/}", color);
         If (color) { Print("{" + tone + "}" + line + "{/}"); } Else { Print(line); }
     }
-    Directory.Create(".robix");
-    Files.WriteText(".robix/last.txt", reason);
     Return ExecutionResult(code, reason);
 }
 

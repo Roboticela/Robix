@@ -607,6 +607,11 @@ private:
         if (owner == "Files" && member == "Exists") return {MakeType(Type::Kind::Bool), "rx::Files::Exists(" + code(0) + ")", ""};
         if (owner == "Files" && member == "Name") return {MakeType(Type::Kind::String), "rx::Files::Name(" + code(0) + ")", ""};
         if (owner == "Files" && member == "Join") return {MakeType(Type::Kind::String), "rx::Files::Join(" + code(0) + ", " + code(1) + ")", ""};
+        if (owner == "Directory" && member == "Names") {
+            Type list = MakeType(Type::Kind::List);
+            list.elem = std::make_shared<Type>(MakeType(Type::Kind::String));
+            return {list, "rx::Directory::Names(" + code(0) + ")", ""};
+        }
         if (owner == "Directory" && member == "Files") {
             Type list = MakeType(Type::Kind::List);
             list.elem = std::make_shared<Type>(MakeType(Type::Kind::String));

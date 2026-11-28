@@ -900,6 +900,25 @@ inline void Delete(const String& path) {
     std::filesystem::remove_all(path.text, error);
 }
 
+inline List<String> Names(const String& path) {
+    List<String> files = List<String>::Make();
+    if (path.null || path.text.empty()) return files;
+    std::error_code error;
+    std::filesystem::path root(path.text == "." ? std::filesystem::path(".") : std::filesystem::path(path.text));
+    if (!std::filesystem::exists(root, error)) return files;
+    std::filesystem::directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, error);
+    std::filesystem::directory_iterator end;
+    std::vector<std::string> names;
+    for (; !error && it != end; it.increment(error)) {
+        std::error_code status;
+        if (!it->is_regular_file(status)) continue;
+        names.push_back(it->path().filename().generic_string());
+    }
+    std::sort(names.begin(), names.end());
+    for (const std::string& name : names) files.Add(String::Lit(name));
+    return files;
+}
+
 inline List<String> Files(const String& path) {
     List<String> files = List<String>::Make();
     if (path.null || path.text.empty()) return files;

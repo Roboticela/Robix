@@ -271,7 +271,7 @@ Public Class ProjectEngine {
     Private Function FindProject() -> String {
         If (Files.Exists("Robix.rxp")) { Return "Robix.rxp"; }
         Var matches = List<String>();
-        For relative In Directory.Files(".") {
+        For relative In Directory.Names(".") {
             If (relative.EndsWith(".rxp") && !relative.Contains("/")) {
                 matches.Add(relative);
             }

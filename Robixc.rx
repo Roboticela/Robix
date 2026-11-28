@@ -84,7 +84,7 @@ Explain {
             If (Files.Exists(preferred)) { entry = preferred; }
         }
         If (entry == "") {
-            For relative In Directory.Files(".") {
+            For relative In Directory.Names(".") {
                 Bool sourceFile = relative.EndsWith(".rx") && !relative.EndsWith(".test.rx");
                 If (sourceFile && !relative.Contains("/") && !relative.Contains("\\")) {
                     If (Files.ReadText(relative).Contains("Function Main")) {
@@ -929,7 +929,7 @@ Explain {
     Output: "The project path, or empty.";
 } {
     If (Files.Exists("Robix.rxp")) { Return "Robix.rxp"; }
-    For relative In Directory.Files(".") {
+    For relative In Directory.Names(".") {
         If (relative.EndsWith(".rxp") && !relative.Contains("/") && !relative.Contains("\\")) { Return relative; }
     }
     Return "";
@@ -982,8 +982,6 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
     If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
     Print("{muted}--------------------------------{/}");
     Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
-    Directory.Create(".robix");
-    Files.WriteText(".robix/last.txt", reason);
     Return ExecutionResult(code, reason);
 }
 
