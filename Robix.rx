@@ -17,6 +17,7 @@ Private Extern Function HostArchitecture() -> String;
 Private Extern Function ToolchainPath() -> String;
 Private Extern Function UserConfigPath() -> String;
 Private Extern Function ParallelRun(String script) -> String;
+Private Extern Function LiveObjects() -> Int;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -1852,6 +1853,69 @@ Explain {
     Return FinishShown(ExitCode.Success, "Configuration saved.", useColor);
 }
 
+Public Function KindChoices() -> String
+Explain {
+    Description: "List the project kinds a person can choose.";
+    Input: None;
+    Processing: "Keep the three kinds in menu order.";
+    Output: "One kind on each line.";
+} {
+    Return "Application\nCanvas\nBedrock";
+}
+
+Public Function VariantChoices(String kind) -> String
+Explain {
+    Description: "List the variants for one project kind.";
+    Input: kind = "Application, Canvas, or Bedrock";
+    Processing: "Application offers Console, Window, and Network. Canvas offers Empty. Bedrock offers its six roles.";
+    Output: "One variant on each line, or nothing when the kind is unknown.";
+} {
+    String name = kind.ToLower();
+    If (name == "application") { Return "Console\nWindow\nNetwork"; }
+    If (name == "canvas") { Return "Empty"; }
+    If (name == "bedrock") { Return "Kernel\nOS\nBIOS\nDriver\nBootloader\nFirmware"; }
+    Return "";
+}
+
+Public Function MenuText(String title, String choices) -> String
+Explain {
+    Description: "Render a numbered choice list.";
+    Input: title = "The question", choices = "Options, one on each line";
+    Processing: "Number each option from 1. Ask for that number.";
+    Output: "The menu text.";
+} {
+    String text = title + "\n";
+    Var lines = choices.Split("\n");
+    Int number = 1;
+    For line In lines {
+        If (line != "") {
+            text = text + "  " + number.ToString() + "  " + line + "\n";
+            number = number + 1;
+        }
+    }
+    Return text + "Number?";
+}
+
+Public Function ChooseOption(String answer, String choices) -> String
+Explain {
+    Description: "Turn a menu answer into the chosen option.";
+    Input: answer = "A number or the option name", choices = "Options, one on each line";
+    Processing: "Match the number, or the name without caring about case.";
+    Output: "The option text, or nothing when the answer is not in the list.";
+} {
+    String picked = answer.Trim();
+    If (picked == "") { Return ""; }
+    Var lines = choices.Split("\n");
+    Int number = 1;
+    For line In lines {
+        If (line != "") {
+            If (picked == number.ToString() || picked.ToLower() == line.ToLower()) { Return line; }
+            number = number + 1;
+        }
+    }
+    Return "";
+}
+
 Public Function AskProject(List<String> args, String kindName, Bool useColor, Bool force) -> ExecutionResult
 Explain {
     Description: "Collect the answers for a new project and write it.";
@@ -1884,15 +1948,17 @@ Explain {
     }
     If (rawName == "") {
         Say("{accent}Project name?{/}", useColor);
-        rawName = Input();
+        rawName = Input().Trim();
     }
     If (kind == "") {
-        Say("{accent}Kind?{/} Application, Canvas, or Bedrock", useColor);
-        kind = Input();
+        Say(MenuText("Kind", KindChoices()), useColor);
+        kind = ChooseOption(Input(), KindChoices());
+        If (kind == "") { Return FinishShown(ExitCode.InvalidArguments, "Choose a kind by number.", useColor); }
     }
     If (variant == "") {
-        Say("{accent}Variant?{/}", useColor);
-        variant = Input();
+        Say(MenuText("Variant", VariantChoices(kind)), useColor);
+        variant = ChooseOption(Input(), VariantChoices(kind));
+        If (variant == "") { Return FinishShown(ExitCode.InvalidArguments, "Choose a variant by number.", useColor); }
     }
     String name = PascalName(rawName);
     If (name == "") { Return FinishShown(ExitCode.InvalidArguments, "The project name must start with a letter.", useColor); }
@@ -2437,8 +2503,14 @@ Explain {
     interpreter.SetConsole(consoleOn, port);
     interpreter.SetRunGate(spanStart, spanEnd, breakLine, trace);
     interpreter.SetDebugView(showVariables, showStack);
+    If (coverage) { interpreter.SetCoverage(True); }
+    Int liveBefore = LiveObjects();
     Int runStart = ClockMillis();
     Int exitCode = interpreter.Execute(result.Module, programArguments);
+    Int liveAfter = LiveObjects();
+    If (liveAfter > liveBefore + 8192) {
+        Say("{warning}leak{/}  " + (liveAfter - liveBefore).ToString() + " objects are still live after the run. Truncate the list or call Memory.Free. There is no garbage collector.", useColor);
+    }
     Int runTime = ClockMillis() - runStart;
     For line In interpreter.Lines() { Print(line); }
     For line In interpreter.RuntimeErrors() { Say("{error}" + line + "{/}", useColor); }
@@ -2655,7 +2727,7 @@ Private Function FinishShown(Int code, String reason, Bool useColor) -> Executio
             If (line != "") { line = line + "  "; }
             line = line + reason;
         }
-        Say("{muted}────────────────────────────────{/}", color);
+        Say("{muted}--------------------------------{/}", color);
         If (color) { Print("{" + tone + "}" + line + "{/}"); } Else { Print(line); }
     }
     Directory.Create(".robix");

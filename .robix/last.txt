@@ -1,1 +1,1 @@
-Test files are run with Robix Test. They are not compilation entries.
+Program completed successfully.

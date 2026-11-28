@@ -293,24 +293,24 @@ Public Class SyntaxCompiler {
         Int line = 1;
         Int column = 1;
         While (index < source.Length()) {
-            String piece = source.Substring(index, 1);
-            If (piece == "\n") {
+            Int code = source.GetChar(index).ToInt();
+            If (code == 10) {
                 line = line + 1;
                 column = 1;
                 index = index + 1;
-            } Else If (piece == "/" && index + 1 < source.Length() && source.Substring(index + 1, 1) == "/") {
-                While (index < source.Length() && source.Substring(index, 1) != "\n") {
+            } Else If (code == 47 && index + 1 < source.Length() && source.GetChar(index + 1).ToInt() == 47) {
+                While (index < source.Length() && source.GetChar(index).ToInt() != 10) {
                     index = index + 1;
                 }
-            } Else If (piece == "\"") {
+            } Else If (code == 34) {
                 index = index + 1;
                 column = column + 1;
-                While (index < source.Length() && source.Substring(index, 1) != "\"") {
-                    If (source.Substring(index, 1) == "\\") {
+                While (index < source.Length() && source.GetChar(index).ToInt() != 34) {
+                    If (source.GetChar(index).ToInt() == 92) {
                         index = index + 2;
                         column = column + 2;
                     } Else {
-                        If (source.Substring(index, 1) == "\n") {
+                        If (source.GetChar(index).ToInt() == 10) {
                             line = line + 1;
                             column = 1;
                         } Else {
@@ -324,14 +324,14 @@ Public Class SyntaxCompiler {
                     column = column + 1;
                 }
                 previous = "";
-            } Else If (This.IsNameStart(piece)) {
+            } Else If (This.IsNameCode(code)) {
                 Int nameColumn = column;
-                String token = "";
-                While (index < source.Length() && This.IsNamePart(source.Substring(index, 1))) {
-                    token = token + source.Substring(index, 1);
+                Int start = index;
+                While (index < source.Length() && This.IsNamePartCode(source.GetChar(index).ToInt())) {
                     index = index + 1;
                     column = column + 1;
                 }
+                String token = source.Substring(start, index - start);
                 If (previous != "." && !This.IsBinder(previous) && catalog.Contains(";" + token + "|") && !declared.Contains(";" + token + ";") && !reported.Contains(";" + token + ";")) {
                     String packageName = This.CatalogPackage(catalog, token);
                     If (packageName != "" && !imported.Contains(";" + packageName + ";")) {
@@ -341,8 +341,8 @@ Public Class SyntaxCompiler {
                 }
                 previous = token;
             } Else {
-                If (piece != " " && piece != "\t" && piece != "\r") {
-                    previous = piece;
+                If (code != 32 && code != 9 && code != 13) {
+                    previous = String.From(code);
                 }
                 index = index + 1;
                 column = column + 1;
@@ -364,6 +364,19 @@ Public Class SyntaxCompiler {
     Private Function IsNamePart(String piece) -> Bool {
         If (This.IsNameStart(piece)) { Return True; }
         Return "0123456789".Contains(piece);
+    }
+
+    Private Function IsNameCode(Int code) -> Bool {
+        If (code >= 65 && code <= 90) { Return True; }
+        If (code >= 97 && code <= 122) { Return True; }
+        If (code == 95) { Return True; }
+        Return False;
+    }
+
+    Private Function IsNamePartCode(Int code) -> Bool {
+        If (This.IsNameCode(code)) { Return True; }
+        If (code >= 48 && code <= 57) { Return True; }
+        Return False;
     }
 
     Private Function TypeCatalog() -> String {
@@ -388,7 +401,7 @@ Public Class SyntaxCompiler {
         While (index <= text.Length()) {
             Int atEnd = 0;
             If (index == text.Length()) { atEnd = 1; }
-            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+            If (atEnd == 1 || text.GetChar(index).ToInt() == 10) {
                 String line = text.Substring(lineStart, index - lineStart);
                 String trimmed = This.TrimLeft(line);
                 If (trimmed.StartsWith("Package ")) {
@@ -409,7 +422,7 @@ Public Class SyntaxCompiler {
         While (index <= text.Length()) {
             Int atEnd = 0;
             If (index == text.Length()) { atEnd = 1; }
-            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+            If (atEnd == 1 || text.GetChar(index).ToInt() == 10) {
                 String trimmed = This.TrimLeft(text.Substring(lineStart, index - lineStart));
                 String name = This.TypeNameOn(trimmed);
                 If (name != "" && !built.Contains(";" + name + "|")) {
@@ -445,7 +458,7 @@ Public Class SyntaxCompiler {
         While (index <= text.Length()) {
             Int atEnd = 0;
             If (index == text.Length()) { atEnd = 1; }
-            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+            If (atEnd == 1 || text.GetChar(index).ToInt() == 10) {
                 String trimmed = This.TrimLeft(text.Substring(lineStart, index - lineStart));
                 If (trimmed.StartsWith("Import ")) {
                     String name = This.ImportName(trimmed.Substring(7));
@@ -465,29 +478,29 @@ Public Class SyntaxCompiler {
         String previous = "";
         Int index = 0;
         While (index < text.Length()) {
-            String piece = text.Substring(index, 1);
-            If (piece == "\"") {
+            Int code = text.GetChar(index).ToInt();
+            If (code == 34) {
                 index = index + 1;
-                While (index < text.Length() && text.Substring(index, 1) != "\"") {
-                    If (text.Substring(index, 1) == "\\") { index = index + 2; }
+                While (index < text.Length() && text.GetChar(index).ToInt() != 34) {
+                    If (text.GetChar(index).ToInt() == 92) { index = index + 2; }
                     Else { index = index + 1; }
                 }
                 If (index < text.Length()) { index = index + 1; }
                 previous = "";
-            } Else If (piece == "/" && index + 1 < text.Length() && text.Substring(index + 1, 1) == "/") {
-                While (index < text.Length() && text.Substring(index, 1) != "\n") { index = index + 1; }
-            } Else If (This.IsNameStart(piece)) {
-                String token = "";
-                While (index < text.Length() && This.IsNamePart(text.Substring(index, 1))) {
-                    token = token + text.Substring(index, 1);
+            } Else If (code == 47 && index + 1 < text.Length() && text.GetChar(index + 1).ToInt() == 47) {
+                While (index < text.Length() && text.GetChar(index).ToInt() != 10) { index = index + 1; }
+            } Else If (This.IsNameCode(code)) {
+                Int start = index;
+                While (index < text.Length() && This.IsNamePartCode(text.GetChar(index).ToInt())) {
                     index = index + 1;
                 }
+                String token = text.Substring(start, index - start);
                 If (This.IsBinder(previous) && !declared.Contains(";" + token + ";")) {
                     declared = declared + token + ";";
                 }
                 previous = token;
             } Else {
-                If (piece != " " && piece != "\t" && piece != "\r" && piece != "\n") { previous = piece; }
+                If (code != 32 && code != 9 && code != 13 && code != 10) { previous = String.From(code); }
                 index = index + 1;
             }
         }
@@ -518,8 +531,8 @@ Public Class SyntaxCompiler {
     Private Function TrimLeft(String text) -> String {
         Int index = 0;
         While (index < text.Length()) {
-            String piece = text.Substring(index, 1);
-            If (piece != " " && piece != "\t" && piece != "\r") { Return text.Substring(index); }
+            Int code = text.GetChar(index).ToInt();
+            If (code != 32 && code != 9 && code != 13) { Return text.Substring(index); }
             index = index + 1;
         }
         Return "";
@@ -529,8 +542,8 @@ Public Class SyntaxCompiler {
         String trimmed = This.TrimLeft(text);
         Int end = trimmed.Length();
         While (end > 0) {
-            String piece = trimmed.Substring(end - 1, 1);
-            If (piece != " " && piece != "\t" && piece != "\r") { Return trimmed.Substring(0, end); }
+            Int code = trimmed.GetChar(end - 1).ToInt();
+            If (code != 32 && code != 9 && code != 13) { Return trimmed.Substring(0, end); }
             end = end - 1;
         }
         Return "";

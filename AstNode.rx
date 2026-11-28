@@ -133,11 +133,6 @@ Public Class AstNode {
         This.FlagA = False;
         This.FlagB = False;
         This.FlagC = False;
-        This.Modifiers = List<String>();
-        This.Attributes = List<AstNode>();
-        This.Children = List<AstNode>();
-        This.Parameters = List<AstNode>();
-        This.Members = List<AstNode>();
         This.Type = Null;
         This.Body = Null;
         This.Initializer = Null;

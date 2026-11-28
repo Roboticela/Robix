@@ -978,3 +978,7 @@ Test RunDefers {
     Processing: True;
     Output: True;
 }
+
+Test CheckRetained { Output: True; }
+Test LoopTruncates { Output: True; }
+Test ReportCharacterLeak { Output: True; }

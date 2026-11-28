@@ -223,7 +223,63 @@ struct List {
         data->push_back(item);
         return static_cast<int64_t>(data->size());
     }
+
+    int64_t Truncate(int64_t count) {
+        if (!data) return 0;
+        if (count < 0) count = 0;
+        if (static_cast<size_t>(count) < data->size()) data->resize(static_cast<size_t>(count));
+        return static_cast<int64_t>(data->size());
+    }
 };
+
+inline int64_t& ObjectLedger() {
+    static int64_t count = 0;
+    return count;
+}
+
+inline int64_t LiveObjects() { return ObjectLedger(); }
+
+inline std::vector<void*>& RecycleBin(std::size_t bytes) {
+    static std::vector<std::vector<void*>> bins(8192);
+    static std::vector<void*> unused;
+    if (bytes == 0 || bytes >= bins.size()) return unused;
+    return bins[bytes];
+}
+
+template <typename T>
+struct PoolAlloc {
+    using value_type = T;
+    PoolAlloc() = default;
+    template <typename U>
+    PoolAlloc(const PoolAlloc<U>&) {}
+
+    T* allocate(std::size_t count) {
+        std::size_t bytes = sizeof(T) * count;
+        std::vector<void*>& bin = RecycleBin(bytes);
+        if (bytes < 8192 && !bin.empty()) {
+            void* memory = bin.back();
+            bin.pop_back();
+            return static_cast<T*>(memory);
+        }
+        return static_cast<T*>(::operator new(bytes));
+    }
+
+    void deallocate(T* pointer, std::size_t count) noexcept {
+        if (pointer == nullptr) return;
+        std::size_t bytes = sizeof(T) * count;
+        if (bytes == 0 || bytes >= 8192) {
+            ::operator delete(pointer);
+            return;
+        }
+        RecycleBin(bytes).push_back(pointer);
+    }
+};
+
+template <typename T, typename U>
+inline bool operator==(const PoolAlloc<T>&, const PoolAlloc<U>&) { return true; }
+
+template <typename T, typename U>
+inline bool operator!=(const PoolAlloc<T>&, const PoolAlloc<U>&) { return false; }
 
 inline String JoinLines(List<String> lines) {
     std::string text;

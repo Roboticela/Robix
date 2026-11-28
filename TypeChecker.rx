@@ -204,6 +204,7 @@ Public Class TypeChecker {
             This.diagnostics.TypeError("RX122", "A file can define only one Main.", entryLine, entryColumn, "one Main", entryPoints.ToString() + " entry points", "Keep either the function Main or the class Main.");
         }
         This.CheckLeaks(module);
+        This.CheckRetained(module, False);
         This.PopScope();
     }
 
@@ -2695,6 +2696,68 @@ Public Class TypeChecker {
             }
         }
         Return False;
+    }
+
+    Private Function CheckRetained(AstNode node, Bool imported) -> Void {
+        Bool skip = imported;
+        If (This.HasModifier(node, "Imported")) { skip = True; }
+        If (!skip && (node.Kind == AstKind.While || node.Kind == AstKind.For)) {
+            Bool growth = node.Kind == AstKind.While && !This.LoopTruncates(node);
+            This.ReportCharacterLeak(node.Body, growth);
+            This.ReportCharacterLeak(node.Condition, growth);
+            This.ReportCharacterLeak(node.Left, growth);
+            This.ReportCharacterLeak(node.Right, growth);
+            This.ReportCharacterLeak(node.Initializer, growth);
+            This.ReportCharacterLeak(node.Extra, growth);
+        }
+        For child In node.Children { This.CheckRetained(child, skip); }
+        If (node.Body != Null) { This.CheckRetained(node.Body, skip); }
+        If (node.Condition != Null) { This.CheckRetained(node.Condition, skip); }
+        If (node.Left != Null) { This.CheckRetained(node.Left, skip); }
+        If (node.Right != Null) { This.CheckRetained(node.Right, skip); }
+        If (node.Initializer != Null) { This.CheckRetained(node.Initializer, skip); }
+        If (node.Extra != Null) { This.CheckRetained(node.Extra, skip); }
+        If (node.Otherwise != Null) { This.CheckRetained(node.Otherwise, skip); }
+        For parameter In node.Parameters { This.CheckRetained(parameter, skip); }
+    }
+
+    Private Function LoopTruncates(AstNode? node) -> Bool {
+        If (node == Null) { Return False; }
+        If (node.Kind == AstKind.Call && node.Left != Null && node.Left.Name == "Truncate") { Return True; }
+        For child In node.Children {
+            If (This.LoopTruncates(child)) { Return True; }
+        }
+        If (node.Body != Null && This.LoopTruncates(node.Body)) { Return True; }
+        If (node.Left != Null && This.LoopTruncates(node.Left)) { Return True; }
+        If (node.Right != Null && This.LoopTruncates(node.Right)) { Return True; }
+        Return False;
+    }
+
+    Private Function ReportCharacterLeak(AstNode? node, Bool growth) -> Void {
+        If (node == Null) { Return; }
+        If (node.Kind == AstKind.While || node.Kind == AstKind.For || node.Kind == AstKind.Function || node.Kind == AstKind.Lambda || node.Kind == AstKind.Class) { Return; }
+        If (node.Kind == AstKind.Call && node.Left != Null && node.Left.Name == "Substring" && node.Parameters.Count() >= 2) {
+            AstNode argument = node.Parameters[1];
+            If (argument.Kind == AstKind.Argument && argument.Left != Null) { argument = argument.Left; }
+            If (argument.Kind == AstKind.IntegerLiteral && argument.Text == "1") {
+                This.diagnostics.Warning("RX142", "This loop allocates a one-character string on every pass. GetChar reads the byte and frees nothing later, because there is no garbage collector.", node.Line, node.Column);
+            }
+        }
+        If (growth && node.Kind == AstKind.Call && node.Left != Null && node.Left.Name == "Add") {
+            AstNode owner = node.Left.Left;
+            While (owner != Null && owner.Kind == AstKind.Member) { owner = owner.Left; }
+            If (owner != Null && owner.Kind == AstKind.Name && owner.Name == "This") {
+                This.diagnostics.Warning("RX143", "This loop keeps every added object. Truncate the list back to the size from before the iteration. There is no garbage collector.", node.Line, node.Column);
+            }
+        }
+        For child In node.Children { This.ReportCharacterLeak(child, growth); }
+        If (node.Body != Null) { This.ReportCharacterLeak(node.Body, growth); }
+        If (node.Left != Null) { This.ReportCharacterLeak(node.Left, growth); }
+        If (node.Right != Null) { This.ReportCharacterLeak(node.Right, growth); }
+        If (node.Condition != Null) { This.ReportCharacterLeak(node.Condition, growth); }
+        If (node.Initializer != Null) { This.ReportCharacterLeak(node.Initializer, growth); }
+        If (node.Extra != Null) { This.ReportCharacterLeak(node.Extra, growth); }
+        For parameter In node.Parameters { This.ReportCharacterLeak(parameter, growth); }
     }
 
     Private Function CheckLeaks(AstNode module) -> Int {

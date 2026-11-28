@@ -37,8 +37,6 @@ Public Class Value {
         This.FloatValue = 0.0;
         This.Boolean = False;
         This.Text = "";
-        This.Elements = List<Value>();
-        This.FieldNames = List<String>();
         This.FunctionNode = Null;
     }
 }
@@ -81,6 +79,7 @@ Public Class Interpreter {
     Private Bool showVariables;
     Private Bool showStack;
     Private Bool stopArmed;
+    Private Bool recordCoverage;
     Private Int statementCount;
     Private String coverageText;
     Private String callStackText;
@@ -123,6 +122,7 @@ Public Class Interpreter {
         This.showVariables = False;
         This.showStack = False;
         This.stopArmed = True;
+        This.recordCoverage = False;
         This.statementCount = 0;
         This.coverageText = "\n";
         This.callStackText = "";
@@ -137,6 +137,16 @@ Public Class Interpreter {
     } {
         This.consoleEnabled = enabled;
         This.consolePort = port;
+    }
+
+    Public Function SetCoverage(Bool enabled) -> Void
+    Explain {
+        Description: "Record executed lines only when coverage was requested.";
+        Input: enabled = "True to keep a line number for each executed statement";
+        Processing: "Store the flag. A normal run does not allocate a coverage string for every statement.";
+        Output: "No return value.";
+    } {
+        This.recordCoverage = enabled;
     }
 
     Public Function SetRunGate(Int startLine, Int endLine, Int breakLine, Bool trace) -> Void
@@ -970,7 +980,7 @@ Public Class Interpreter {
     }
 
     Private Function SkipEffect(AstNode node) -> Bool {
-        If (node.Line > 0) {
+        If (This.recordCoverage && node.Line > 0) {
             String covered = "";
             If (This.coverageText != Null) { covered = This.coverageText; }
             String mark = "\n" + node.Line.ToString() + "\n";
@@ -1221,13 +1231,7 @@ Public Class Interpreter {
         }
         While (This.defers.Count() > deferMark) {
             AstNode pending = This.defers[This.defers.Count() - 1];
-            Var kept = List<AstNode>();
-            Int index = 0;
-            While (index < This.defers.Count() - 1) {
-                kept.Add(This.defers[index]);
-                index = index + 1;
-            }
-            This.defers = kept;
+            This.defers.Truncate(This.defers.Count() - 1);
             String saved = This.signal;
             This.signal = "";
             This.ExecuteNode(pending);
@@ -2546,6 +2550,9 @@ Public Class Interpreter {
                 target.Elements.Add(arguments[0]);
                 Return This.MakeVoid();
             }
+            If (node.Left.Name == "Truncate" && arguments.Count() > 0) {
+                Return This.MakeInt(target.Elements.Truncate(arguments[0].Integer));
+            }
             If (node.Left.Name == "Sort") {
                 Int i = 0;
                 While (i < target.Elements.Count() - 1) {
@@ -2888,6 +2895,16 @@ Public Class Interpreter {
 
     Private Function Define(String name, Value value) -> Void {
         If (name.Length() == 0) { Return; }
+        Int mark = 0;
+        If (This.marks.Count() > 0) { mark = This.marks[This.marks.Count() - 1]; }
+        Int index = This.names.Count() - 1;
+        While (index >= mark) {
+            If (This.names[index] == name) {
+                This.values[index] = value;
+                Return;
+            }
+            index = index - 1;
+        }
         This.names.Add(name);
         This.values.Add(value);
     }
@@ -3734,23 +3751,9 @@ Public Class Interpreter {
             }
             dying = dying - 1;
         }
-        Var keptNames = List<String>();
-        Var keptValues = List<Value>();
-        Int index = 0;
-        While (index < mark) {
-            keptNames.Add(This.names[index]);
-            keptValues.Add(This.values[index]);
-            index = index + 1;
-        }
-        This.names = keptNames;
-        This.values = keptValues;
-        Var keptMarks = List<Int>();
-        Int markIndex = 0;
-        While (markIndex < This.marks.Count() - 1) {
-            keptMarks.Add(This.marks[markIndex]);
-            markIndex = markIndex + 1;
-        }
-        This.marks = keptMarks;
+        This.names.Truncate(mark);
+        This.values.Truncate(mark);
+        This.marks.Truncate(This.marks.Count() - 1);
     }
 
     Private Function MakeInt(Int number) -> Value {

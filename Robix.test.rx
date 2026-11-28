@@ -420,6 +420,42 @@ Test GraphFiles { Output: True; }
 Test ModuleFiles { Output: True; }
 Test WatchFiles { Output: True; }
 
+Test KindChoices {
+    Input:;
+    Output: "Application\nCanvas\nBedrock";
+}
+
+Test VariantChoices {
+    Case "application" {
+        Input: kind = "Application";
+        Output: "Console\nWindow\nNetwork";
+    }
+    Case "canvas" {
+        Input: kind = "Canvas";
+        Output: "Empty";
+    }
+}
+
+Test MenuText {
+    Input: title = "Kind", choices = "Application\nCanvas";
+    Output: "Kind\n  1  Application\n  2  Canvas\nNumber?";
+}
+
+Test ChooseOption {
+    Case "number" {
+        Input: answer = "2", choices = "Application\nCanvas\nBedrock";
+        Output: "Canvas";
+    }
+    Case "name" {
+        Input: answer = "console", choices = "Console\nWindow";
+        Output: "Console";
+    }
+    Case "missing" {
+        Input: answer = "9", choices = "Application\nCanvas";
+        Output: "";
+    }
+}
+
 Test TemplateStatus {
     Case "console" {
         Input: kind = "Application", variant = "Console";

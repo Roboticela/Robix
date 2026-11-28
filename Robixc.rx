@@ -980,7 +980,7 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
     If (code == 5) { tone = "error"; name = "permission denied"; }
     If (code == 6) { tone = "error"; name = "resource unavailable"; }
     If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
-    Print("{muted}────────────────────────────────{/}");
+    Print("{muted}--------------------------------{/}");
     Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
     Directory.Create(".robix");
     Files.WriteText(".robix/last.txt", reason);

@@ -33,7 +33,9 @@ public:
         }
         line("");
         for (const auto& item : program_.classes) WriteClass(item.second);
-        for (const auto& item : program_.classes) line(Safe(item.first) + "::~" + Safe(item.first) + "() = default;");
+        for (const auto& item : program_.classes) {
+            line(Safe(item.first) + "::~" + Safe(item.first) + "() { rx::ObjectLedger() -= 1; }");
+        }
         line("");
         for (const FuncInfo& func : program_.functions) {
             if (Included(func)) line(Cpp(Resolve(func.returnSpelling)) + " " + Safe(func.name) + "(" + ParamList(func.params) + ");");
@@ -208,7 +210,8 @@ private:
             if (!counts.insert(method.params.size()).second) Die(info.name + " has two constructors with the same number of arguments");
             if (method.params.empty()) zero = true;
             line(name + "Ptr " + name + "::Make(" + ParamList(method.params) + ") {");
-            line("    auto created = std::shared_ptr<" + name + ">(new " + name + "());");
+            line("    auto created = std::allocate_shared<" + name + ">(rx::PoolAlloc<" + name + ">());");
+            line("    rx::ObjectLedger() += 1;");
             line("    created->__init" + std::to_string(method.params.size()) + "(" + Names(method.params) + ");");
             line("    return created;");
             line("}");
@@ -220,7 +223,9 @@ private:
         }
         if (!zero) {
             line(name + "Ptr " + name + "::Make() {");
-            line("    return std::shared_ptr<" + name + ">(new " + name + "());");
+            line("    auto created = std::allocate_shared<" + name + ">(rx::PoolAlloc<" + name + ">());");
+            line("    rx::ObjectLedger() += 1;");
+            line("    return created;");
             line("}");
             line("");
         }
@@ -585,6 +590,7 @@ private:
         std::string object = "(" + (base.lvalue.empty() ? base.code : base.lvalue) + ")";
         if (member == "Count") return {MakeType(Type::Kind::Int), object + ".Count()", ""};
         if (member == "Add") return {MakeType(Type::Kind::Int), object + ".Add(" + values.at(0).code + ")", ""};
+        if (member == "Truncate") return {MakeType(Type::Kind::Int), object + ".Truncate(" + values.at(0).code + ")", ""};
         Die("List." + member + " is not supported by the bootstrap");
     }
 

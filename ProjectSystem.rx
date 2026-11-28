@@ -1392,7 +1392,7 @@ Public Class ProjectEngine {
         If (code == 6) { tone = "error"; name = "resource unavailable"; }
         If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
         Int elapsed = ClockMillis() - This.Started;
-        Print("{muted}────────────────────────────────{/}");
+        Print("{muted}--------------------------------{/}");
         Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason + "  {accent}" + elapsed.ToString() + " ms{/}");
         Return ExecutionResult(code, reason);
     }

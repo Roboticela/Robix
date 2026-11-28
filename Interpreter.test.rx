@@ -1323,6 +1323,12 @@ Test DebugStop {
     Output: True;
 }
 
+Test SetCoverage {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test SetConsole {
     Constraint: True;
     Processing: True;

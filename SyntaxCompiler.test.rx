@@ -38,6 +38,8 @@ Test RequireUses { Output: True; }
 Test IsBinder { Output: True; }
 Test IsNameStart { Output: True; }
 Test IsNamePart { Output: True; }
+Test IsNameCode { Output: True; }
+Test IsNamePartCode { Output: True; }
 Test TypeCatalog { Output: True; }
 Test PackageName { Output: True; }
 Test CollectTypes { Output: True; }
