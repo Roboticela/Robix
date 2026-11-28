@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Prefer Robix/Bin/RobixBootstrap from the latest GitHub release.
-# If that asset is missing or cannot run, compile Bootstrap/main.cpp.
+# Compile Bootstrap/main.cpp from this checkout. It understands List.Truncate
+# and the rest of the current runtime. The GitHub release binary is older, so
+# it is only a fallback when this machine has no C++ compiler.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -113,8 +114,24 @@ compile_cpp() {
     fi
 }
 
-if ! try_release; then
+have_host_cxx() {
+    if [[ -n "${ROBIX_HOST_CXX:-}" ]]; then
+        return 0
+    fi
+    if command -v clang++ >/dev/null 2>&1 || command -v g++ >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+if have_host_cxx; then
     compile_cpp
+else
+    echo "bootstrap: no host C++ compiler, trying the latest GitHub release" >&2
+    if ! try_release; then
+        echo "error: the bootstrap could not be compiled or downloaded" >&2
+        exit 1
+    fi
 fi
 if [[ ! -x "$dest" ]]; then
     echo "error: $dest was not created" >&2
